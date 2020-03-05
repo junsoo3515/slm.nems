@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="module.dao.files.FilesDao">
+
+    <!--가장 최근 SEQ 가져오기-->
+    <select id="getFileLastKey" parameterType="map" resultType="java.lang.Long">
+        SELECT NVL(MAX(files_seq), 0) FROM COM_FILES
+    </select>
+
+    <!--Max SEQ 가져오기-->
+    <select id="getMaxFileSeq" parameterType="map" resultType="java.lang.Long">
+        SELECT NVL(MAX(files_seq), 0) + 1 FROM COM_FILES
+    </select>
+
+    <!--파일 정보 가져오기-->
+    <select id="getFileList" parameterType="map" resultType="module.vo.files.FilesVO">
+        SELECT
+            *
+        FROM
+            COM_FILES
+
+        <where>
+            <if test="realTB != null">
+                AND real_tb = #{realTB}
+            </if>
+            <if test="realSEQ != null">
+                AND real_seq = #{realSEQ}
+            </if>
+            <if test="gubunCD != null">
+                AND gubun_cd = #{gubunCD}
+            </if>
+        </where>
+
+        ORDER BY reg_dts desc
+    </select>
+
+    <!--파일 상세 정보 가져오기-->
+    <select id="getFileInfo" parameterType="map" resultType="module.vo.files.FilesVO">
+        SELECT
+            *
+        FROM
+            COM_FILES
+        WHERE
+            files_seq = #{key}
+            AND ROWNUM = 1
+    </select>
+
+    <!--파일 DB 추가-->
+    <insert id="insertFile" parameterType="map">
+		INSERT INTO
+		    COM_FILES(files_seq, real_tb, real_seq, gubun_cd, file_type, file_title, file_nm, file_size, file_url, reg_dts)
+		VALUES(
+            (SELECT NVL(MAX(files_seq), 0) + 1 FROM COM_FILES),
+            #{vo.real_tb, jdbcType=VARCHAR},
+            #{vo.real_seq, jdbcType=VARCHAR},
+            #{vo.gubun_cd, jdbcType=VARCHAR},
+            #{vo.file_type, jdbcType=VARCHAR},
+            #{vo.file_title, jdbcType=VARCHAR},
+            #{vo.file_nm, jdbcType=VARCHAR},
+            #{vo.file_size, jdbcType=VARCHAR},
+            #{vo.file_url, jdbcType=VARCHAR},
+            SYSDATE
+        )
+	</insert>
+
+    <!--파일 DB 삭제-->
+    <delete id="deleteFile" parameterType="map">
+        DELETE FROM
+            COM_FILES
+        WHERE
+            files_seq = #{key}
+    </delete>
+</mapper>

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="module.dao.data.DropDownDataDao">
+
+    <!--권한 가져오기-->
+    <select id="getAuthList" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            auth_cd AS id,
+            nm AS val
+        FROM
+            COM_MEM_AUTH
+        ORDER BY
+            nm
+    </select>
+
+    <!-- COM_CODE 코드명/코드값 List 가져오기(DropDown에서 주로 사용) -->
+    <select id="getCodeList" parameterType="map" resultType="module.vo.list.ListObjVO">
+
+        SELECT
+            com_cd AS id,
+            cd_nm AS val
+        FROM
+            COM_CODE T0
+
+        <where>
+            AND T0.use_fl = 'Y'
+            <if test="jongCD != null and jongCD !=''">
+                AND T0.jong_cd = #{jongCD}
+            </if>
+        </where>
+
+        ORDER BY
+            T0.sort_seq
+    </select>
+
+    <!-- SLM_EQUIPGRP_TOPIC 코드명/코드값 List 가져오기(DropDown에서 주로 사용) -->
+    <select id="getEquipGrpTopicList" parameterType="map" resultType="module.vo.list.ListObjVO">
+
+        SELECT
+            topic_cd AS id,
+            topic_nm AS val
+        FROM
+            SLM_EQUIPGRP_TOPIC T0
+
+        <where>
+            AND T0.use_fl = 'Y'
+            <if test="grpCD != null and grpCD !=''">
+                AND T0.eqp_grp_cd = #{grpCD, jdbcType=VARCHAR}
+            </if>
+        </where>
+
+        ORDER BY
+            T0.pos
+    </select>
+
+    <!-- SLM_EQUIPMENT 코드명/코드값 List 가져오기(DropDown에서 주로 사용) -->
+    <select id="getEquipList" parameterType="map" resultType="module.vo.list.ListObjVO">
+
+        SELECT
+            eqp_cd AS id,
+            eqp_nm AS val
+        FROM
+            SLM_EQUIPMENT T0
+
+        <where>
+            AND T0.use_fl = 'Y'
+            <if test="grpCD != null and grpCD !=''">
+                AND T0.eqp_grp_cd = #{grpCD, jdbcType=VARCHAR}
+            </if>
+        </where>
+
+        ORDER BY
+            T0.eqp_serial
+    </select>
+</mapper>

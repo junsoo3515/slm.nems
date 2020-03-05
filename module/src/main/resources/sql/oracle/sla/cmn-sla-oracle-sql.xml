@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="module.dao.sla.SlaDao">
+
+    <!-- 장애발생건수 가져오기 -->
+    <select id="getDisOrderMngData" parameterType="map" resultType="map">
+        SELECT
+            SUM(1) all_cnt,
+            SUM(CASE WHEN T0.mea_fin_dt &lt;= T0.mea_plan_dt THEN 1 ELSE 0 END) normal_cnt
+        FROM
+            SLM_DISORDER T0, (
+
+                SELECT
+                    DISTINCT T0.eqp_cd
+                FROM
+                    SLM_DA_REPORTMAP T0, SLM_DA_REPORT T1
+                WHERE
+                    T0.da_seq = T1.da_seq
+                    AND T1.rpt_gubun_cd = 'DAY'
+                    AND T1.fin_fl = 'Y'
+                    AND T1.brief_dt IN
+
+                    <foreach collection="arrDate" item="item" index="index" separator="," open="(" close=")">
+                        '${item}'
+                    </foreach>
+            ) T1
+        WHERE
+            T0.eqp_cd = T1.eqp_cd
+            AND T0.use_fl = 'Y'
+            AND T0.nature_fl = 'N'
+            AND T0.occur_dt BETWEEN '${sDate}000000' AND '${eDate}235959'
+    </select>
+
+    <!-- 중복장애건수 가져오기 -->
+    <select id="getDupDisOrderNumData" parameterType="map" resultType="map">
+        SELECT
+            T0.eqp_cd, T0.type_cd, COUNT(1) cnt
+        FROM
+            SLM_DISORDER T0, (
+
+                SELECT
+                    DISTINCT T0.eqp_cd
+                FROM
+                    SLM_DA_REPORTMAP T0, SLM_DA_REPORT T1
+                WHERE
+                    T0.da_seq = T1.da_seq
+                    AND T1.rpt_gubun_cd = 'DAY'
+                    AND T1.fin_fl = 'Y'
+                    AND T1.brief_dt IN
+
+                    <foreach collection="arrDate" item="item" index="index" separator="," open="(" close=")">
+                        '${item}'
+                    </foreach>
+            ) T1
+        WHERE
+            T0.eqp_cd = T1.eqp_cd
+            AND T0.use_fl = 'Y'
+            AND T0.nature_fl = 'N'
+            AND T0.occur_dt BETWEEN '${sDate}000000' AND '${eDate}235959'
+        GROUP BY
+            T0.eqp_cd, T0.type_cd
+        HAVING
+            COUNT(1) &gt;= #{minCnt, jdbcType=NUMERIC}
+    </select>
+
+    <!-- 백업성공률 가져오기 -->
+    <select id="getBackupSuccessRateData" parameterType="map" resultType="map">
+        SELECT
+            *
+        FROM
+            SLM_SLA_BACKSUCRATE
+        WHERE
+            sla_seq = #{key, jdbcType=NUMERIC}
+            AND ROWNUM = 1
+    </select>
+
+    <!-- 장애 규명율 : 원인규명완료 장애 건수 가져오기 -->
+    <select id="getDisOrderExamRateData" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            SLM_MEASURE T, SLM_DISORDER T0, (
+
+            SELECT
+                DISTINCT T0.eqp_cd
+            FROM
+                SLM_DA_REPORTMAP T0, SLM_DA_REPORT T1
+            WHERE
+                T0.da_seq = T1.da_seq
+                AND T1.rpt_gubun_cd = 'DAY'
+                AND T1.fin_fl = 'Y'
+                AND T1.brief_dt IN
+
+                <foreach collection="arrDate" item="item" index="index" separator="," open="(" close=")">
+                    '${item}'
+                </foreach>
+            ) T1
+        WHERE
+            T.cause_seq = T0.dis_seq
+            AND T0.eqp_cd = T1.eqp_cd
+            AND T.gubun_cd = 'A'
+            AND T0.use_fl = 'Y'
+            AND T0.fin_fl = 'Y'
+            AND T0.nature_fl = 'N'
+            AND T0.occur_dt BETWEEN '${sDate}000000' AND '${eDate}235959'
+    </select>
+
+    <!-- 시스템 성능관리 : 총 장애 시간 가져오기 -->
+    <select id="getDisOrderAllHourData" parameterType="map" resultType="double">
+        SELECT
+            TO_NUMBER(TRUNC(MOD(SUM(NVL(err_time, 0)), 1) * 24) || '.' || TRUNC(MOD(SUM(NVL(err_time, 0)) * 24, 1) * 60)) err_time
+        FROM (
+            SELECT
+                SUM(TO_DATE(T0.mea_fin_dt, 'YYYYMMDDHH24MISS')-TO_DATE(T0.occur_dt, 'YYYYMMDDHH24MISS')) err_time
+            FROM
+                SLM_DISORDER T0,
+                (
+                    SELECT
+                        DISTINCT T0.eqp_cd
+                    FROM
+                        SLM_DA_REPORTMAP T0, SLM_DA_REPORT T1
+                    WHERE
+                        T0.da_seq = T1.da_seq
+                        AND T1.rpt_gubun_cd = 'DAY'
+                        AND T1.fin_fl = 'Y'
+                        AND T1.brief_dt IN
+
+                        <foreach collection="arrDate" item="item" index="index" separator="," open="(" close=")">
+                            '${item}'
+                        </foreach>
+                ) T1
+            WHERE
+                T0.eqp_cd = T1.eqp_cd
+                AND T0.use_fl = 'Y'
+                AND T0.occur_dt BETWEEN '${sDate}000000' AND '${eDate}235959'
+        ) T
+    </select>
+
+    <!-- 대역폭 사용률 가져오기 -->
+    <select id="getBandWidthUseData" parameterType="map" resultType="map">
+        SELECT
+            T0.bw_itm_cd,
+            T0.use_rate,
+            T1.hig_cd,
+            (SELECT cd_nm FROM COM_CODE WHERE com_cd = T1.hig_cd AND jong_cd = 'BG' AND use_fl = 'Y' AND ROWNUM = 1) hig_nm,
+            (SELECT etc FROM COM_CODE WHERE com_cd = T1.hig_cd AND jong_cd = 'BG' AND use_fl = 'Y' AND ROWNUM = 1) band,
+            T1.cd_unit,
+            T1.link_cd,
+            T1.prime
+        FROM
+            SLM_SLA_BANDWIDTH T0, COM_CODE T1
+        WHERE
+            T0.bw_itm_cd = T1.com_cd
+            AND T0.sla_seq = #{key, jdbcType=NUMERIC}
+            AND T1.jong_cd = 'BI'
+            AND T1.use_fl = 'Y'
+        ORDER BY
+            T1.sort_seq
+    </select>
+
+    <!-- 서비스요청 사항(일반유형) 가져오기 -->
+    <select id="getServiceReqMngRateData" parameterType="map" resultType="map">
+        SELECT
+            COUNT(1) req_cnt,
+            NVL(SUM((CASE WHEN T0.fin_fl = 'Y' THEN 1 ELSE 0 END)), 0) fin_cnt
+        FROM
+            SLM_REQUEST T0, (
+                SELECT
+                    DISTINCT T0.eqp_cd
+                FROM
+                    SLM_DA_REPORTMAP T0, SLM_DA_REPORT T1
+                WHERE
+                    T0.da_seq = T1.da_seq
+                    AND T1.rpt_gubun_cd = 'DAY'
+                    AND T1.fin_fl = 'Y'
+                    AND T1.brief_dt IN
+
+                    <foreach collection="arrDate" item="item" index="index" separator="," open="(" close=")">
+                        '${item}'
+                    </foreach>
+            ) T1
+        WHERE
+            T0.eqp_cd = T1.eqp_cd
+            AND T0.type_cd = 'A'
+            AND T0.use_fl = 'Y'
+            AND T0.mea_plan_dt BETWEEN '${sDate}' AND '${eDate}'
+    </select>
+
+    <!-- 서비스요청 사항(일반유형) 가져오기 -->
+    <select id="getSiteCheckRateData" parameterType="map" resultType="map">
+        SELECT
+            COUNT(1) tot_cnt,
+            NVL(SUM(CASE WHEN T0.inp_val IS NOT NULL THEN 1 ELSE 0 END), 0) pro_cnt
+        FROM
+            SLM_EQUIPMAIN_DATA T0, (
+                SELECT
+                    DISTINCT T.topic_cd, T.rpt_cd, T0.da_seq, T0.eqp_cd
+                FROM
+                    SLM_REPORT_TOPIC T, SLM_DA_REPORTMAP T0, SLM_DA_REPORT T1
+                WHERE
+                    T.rpt_cd = T0.rpt_cd
+                    AND T0.da_seq = T1.da_seq
+                    AND T.eng_nm = 'check_date'
+                    AND T.use_fl = 'Y'
+                    AND T1.rpt_gubun_cd = 'DAY'
+                    AND T1.fin_fl = 'Y'
+                    AND T1.brief_dt IN
+
+                    <foreach collection="arrDate" item="item" index="index" separator="," open="(" close=")">
+                        '${item}'
+                    </foreach>
+            ) T1
+        WHERE
+            T0.eqp_cd = T1.eqp_cd
+            AND T0.topic_cd = T1.topic_cd
+            AND T0.da_seq = T1.da_seq
+            AND T0.rpt_cd = T1.rpt_cd
+            AND T1.eqp_cd = T1.eqp_cd
+    </select>
+</mapper>

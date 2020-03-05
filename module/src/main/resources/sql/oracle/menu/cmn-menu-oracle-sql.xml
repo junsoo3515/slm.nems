@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="module.dao.menu.MenuDao">
+
+    <!-- 전체 메뉴 가져오기 -->
+    <select id="getAllMenu" parameterType="map" resultType="module.vo.menu.MenuVO">
+
+        SELECT
+            /*+INDEX(T0 COM_SYS_MNU_PK)*/ *
+        FROM
+            COM_SYS_MNU T0
+        WHERE
+            T0.mnu_cd > ' '
+    </select>
+
+    <!-- 사용자 별 접근 가능 메뉴 가져오기 -->
+    <select id="getLeftMenu" parameterType="map" resultType="module.vo.menu.MenuVO">
+
+        SELECT
+            T0.mnu_cd
+            , T0.mnu_nm1
+            , T0.mnu_nm2
+            , T0.mnu_nm3
+            , T0.url
+            , T0.etc,
+            SUBSTR(T0.mnu_cd, 1, 3) grp_cd
+        FROM
+            COM_SYS_MNU T0, COM_MEM_MNU T1
+
+        <where>
+            AND T0.mnu_cd = T1.mnu_cd
+            AND T1.use_fl = 'Y'
+            AND SUBSTR(T0.mnu_cd, 1, 1) = #{folKey}
+            AND T1.acs_mem_id = #{memId}
+        </where>
+        ORDER BY
+            T0.mnu_cd
+    </select>
+
+    <!-- 사용자 별 + 해당 메뉴 접근 가능 체크 -->
+    <select id="getAccessMenu" parameterType="map" resultType="int">
+
+        SELECT
+            COUNT(T0.mnu_cd)
+        FROM
+            COM_SYS_MNU T0, COM_MEM_MNU T1
+
+        <where>
+            AND T0.mnu_cd = T1.mnu_cd
+            AND T1.use_fl = 'Y'
+            AND T1.acs_mem_id = #{memID}
+            AND T0.url = #{url}
+        </where>
+    </select>
+
+    <!-- 사용자 별 + 시스템 처음 접근 메뉴 찾기 -->
+    <select id="getAccessFirstMenu" parameterType="map" resultType="map">
+
+        SELECT
+            SUBSTR(T0.mnu_cd, 1, 1) g_key,
+            T0.url
+        FROM
+            COM_SYS_MNU T0, COM_MEM_MNU T1
+
+        <where>
+            AND T0.mnu_cd = T1.mnu_cd
+            AND T1.use_fl = 'Y'
+            AND T0.url IS NOT NULL
+
+            <if test="folKey != null">
+                AND SUBSTR(T0.mnu_cd,1,1) = #{folKey}
+            </if>
+
+            AND T1.acs_mem_id = #{memID}
+            AND ROWNUM = 1
+        </where>
+    </select>
+
+    <!--해당 CRUD 권한 가져오기-->
+    <select id="getAuthCrud" parameterType="map" resultType="map">
+        SELECT
+            use_fl, read_fl, reg_fl, mod_fl, del_fl
+        FROM
+            COM_MEM_MNU
+        WHERE
+            mnu_cd = #{mnu_cd}
+            AND acs_mem_id = #{id}
+    </select>
+
+    <!--권한/사용자별 메뉴 접근 설정 가져오기-->
+    <select id="getMenuData" parameterType="map" resultType="module.vo.menu.MenuAuthVO">
+        SELECT
+            mnu_cd, use_fl, read_fl, reg_fl, mod_fl, del_fl
+        FROM
+            COM_MEM_MNU
+
+        <where>
+            <choose>
+                <when test="jongCd eq 'A'.toString()">
+                    AND acs_auth_cd = #{val}
+                    AND acs_mem_id IS NULL
+                </when>
+                <otherwise>
+                    AND acs_mem_id = #{val}
+                </otherwise>
+            </choose>
+        </where>
+    </select>
+
+    <!-- 사용자 접속 Log Insert -->
+    <insert id="setUserLogInsert" parameterType="map">
+        INSERT INTO
+            COM_MEM_ALOG(alog_seq, mnu_cd, mem_id, reg_dts)
+        VALUES (
+            (SELECT NVL(MAX(alog_seq), 0) + 1 FROM COM_MEM_ALOG),
+            #{mnu_cd, jdbcType=VARCHAR},
+            #{id, jdbcType=VARCHAR},
+            SYSDATE
+        )
+    </insert>
+</mapper>

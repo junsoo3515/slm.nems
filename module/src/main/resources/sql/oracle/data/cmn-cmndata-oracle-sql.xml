@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="module.dao.data.CmnDataDao">
+
+    <!-- 특정 테이블의 최대 고유번호 가져오기 -->
+    <select id="getTableMaxSeq" resultType="long">
+        SELECT
+            NVL(MAX(${col}), 0) + #{addCnt, jdbcType=INTEGER}
+        FROM
+            ${tb}
+    </select>
+</mapper>

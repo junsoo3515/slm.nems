@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="module.dao.login.AuthLoginDao">
+
+    <!-- 사용자 정보 가져오기 -->
+    <select id="getMemberData" parameterType="map" resultType="module.vo.login.UserVO">
+        SELECT
+            T0.mem_id, T0.nm, T0.pwd, T0.auth_cd, T0.fail_pwd_cnt, T0.use_fl,
+            NVL((SELECT files_seq FROM COM_FILES WHERE real_seq = T0.mem_id AND real_tb = 'COM_MEM_INFO' AND gubun_cd = 'A' AND ROWNUM = 1 ), 0) files_seq
+        FROM
+            COM_MEM_INFO T0
+
+        <where>
+            <if test="vo.memID != null">
+                T0.mem_id= #{vo.memID}
+            </if>
+        </where>
+    </select>
+
+    <!-- 계정이 틀려서 로그인 실패 할 경우 비밀번호 틀린 횟수 + 1 -->
+    <update id="setLoginFail" parameterType="map">
+        UPDATE
+            COM_MEM_INFO
+        SET
+            fail_pwd_cnt = fail_pwd_cnt + 1
+
+        WHERE
+            mem_id= #{memID, jdbcType=VARCHAR}
+    </update>
+
+</mapper>
