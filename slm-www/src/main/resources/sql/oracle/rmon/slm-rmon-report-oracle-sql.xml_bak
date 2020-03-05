@@ -1,0 +1,496 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.rmon.ReportDao">
+
+    <select id="getRmonReportListCnt" parameterType="map" resultType="int">
+        SELECT
+        COUNT(1)
+        FROM
+        SLM_DA_REPORT
+        where RPT_GUBUN_CD='MON'
+
+        <if test="vo.isSearch == true">
+            <if test="sDate != null and sDate != ''">
+                AND BRIEF_DT &gt;= #{sDate}
+            </if>
+            <if test="eDate != null and eDate != ''">
+                AND BRIEF_DT &lt;= #{eDate}
+            </if>
+        </if>
+    </select>
+    <select id="getRmonReportCheckListCnt" parameterType="map" resultType="int">
+        SELECT
+          count(1)
+        FROM
+        (
+        SELECT
+        rpt_cd
+        FROM
+        SLM_DA_REPORTSUM t0
+        WHERE
+        da_seq IN
+        (
+        SELECT
+        da_seq
+        FROM
+        SLM_DA_REPORT
+        WHERE
+        rpt_gubun_cd = 'DAY'
+        AND brief_dt &lt;= #{end_dt}
+        AND brief_dt &gt;= #{start_dt}
+        )
+        GROUP BY rpt_cd
+        )
+
+    </select>
+    <!--월간주요현황 가져오기-->
+    <select id="getRmonReportList" parameterType="map" resultType="slm.www.vo.rmon.ReportVO">
+        SELECT
+        *
+        FROM
+        (
+        SELECT
+        ROWNUM as rnum,
+        T.*
+        FROM
+        (
+        SELECT
+        DA_SEQ,
+        ( SUBSTR(BRIEF_DT,1,4)||'-'||SUBSTR(BRIEF_DT,5,2)||'-'||SUBSTR(BRIEF_DT,7,2) ) as BRIEF_DT,
+        ( SUBSTR(BRIEF_DT,1,4)||'년'||SUBSTR(BRIEF_DT,5,2)||'월 월간보고서') as SUBJECT
+        FROM
+        SLM_DA_REPORT
+
+        where RPT_GUBUN_CD='MON'
+
+
+        <if test="vo.isSearch == true">
+            <if test="sDate != null and sDate != ''">
+                AND BRIEF_DT &gt;= #{sDate}
+            </if>
+            <if test="eDate != null and eDate != ''">
+                AND BRIEF_DT &lt;= #{eDate}
+            </if>
+        </if>
+
+        <trim prefix="ORDER BY" prefixOverrides=",">
+            <choose>
+                <when test="vo.sortID != null and vo.sortID != ''">
+                    , ${vo.sortID} ${vo.sortDesc}
+                </when>
+                <otherwise>
+                    , DA_SEQ DESC
+                </otherwise>
+            </choose>
+        </trim>
+
+        ) T
+        ) A0
+
+        WHERE
+        A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+    </select>
+
+    <!--월간주요현황 당월,전월 시작일,날짜일 가져오기-->
+    <select id="getRmonReportDate" parameterType="map" resultType="slm.www.vo.rmon.ReportVO">
+        SELECT
+            da_seq,
+            start_dt,
+            end_dt
+        FROM
+            (
+            SELECT
+                da_seq,
+                start_dt,
+                end_dt,
+                ROW_NUMBER() OVER (ORDER BY DA_SEQ DESC) R
+            FROM
+                SLM_DA_REPORT
+            WHERE
+                RPT_GUBUN_CD = 'MON'
+                <if test="da_seq != null">
+            AND DA_SEQ &lt;= #{da_seq}
+                </if>
+            )
+        WHERE
+            R BETWEEN 1 AND 2
+    </select>
+
+    <!--월간주요현황점검현황 목록 가져오기-->
+    <select id="getRmonReportCheckList" parameterType="map" resultType="slm.www.vo.rmon.CheckVO">
+
+        SELECT
+            t2.rpt_cd ,
+            ROUND(t2.cnt_all/(SELECT
+                              DISTINCT COUNT(1)
+                            FROM
+                               SLM_DA_REPORTSUM
+                            WHERE da_seq IN ( (
+                                            SELECT
+                                               da_seq
+                                            FROM
+                                               SLM_DA_REPORT
+                                             WHERE
+                                             rpt_gubun_cd = 'DAY' AND FIN_FL='Y' AND brief_dt &lt;= #{end_dt} AND brief_dt &gt;= #{start_dt}))
+                            GROUP BY rpt_cd ),0) AS cnt_all,
+            (SELECT nm FROM SLM_REPORT_CODE WHERE rpt_cd=t1.hig_rpt_cd AND use_fl = 'Y' AND rownum=1) rpt_gubun,
+            t1.nm rpt_bunryu,
+            t2.error_time_sum,
+            t2.hold_time_sum,
+            (CASE WHEN T2.RES_FL = 0 THEN '정상' ELSE '이상' END) RES_FL,
+            t2.CNT_ERR,
+            t2.CNT_FIN,
+            t2.CNT_INN,
+            t2.CNT_OUT,
+            t2.add_cont
+        FROM (
+            SELECT
+               rpt_cd, hig_rpt_cd, nm
+            FROM
+              SLM_REPORT_CODE
+            WHERE
+                use_fl = 'Y'
+            AND rpt_depth = '4'
+            START WITH
+                hig_rpt_cd = '0101000000'
+            CONNECT BY PRIOR
+                rpt_cd = hig_rpt_cd
+        ) T1 LEFT JOIN
+        (
+            SELECT
+                ST.rpt_cd,
+                ST.cnt_all,
+                ST.res_fl,
+                ST.cnt_err,
+                ST.cnt_fin,
+                ST.cnt_inn,
+                ST.cnt_out,
+                ST.add_cont,
+                LPAD(TRUNC(ST.error_time_sum / 86400 * 24), 2, '0') || ':' || RPAD((ST.error_time_sum - (TRUNC(ST.error_time_sum / 86400 * 24) * 60 * 60)) / 60, 2, '0') || ':00' error_time_sum,
+                LPAD(TRUNC(ST.hold_time_sum / 86400 * 24), 2, '0') || ':' || RPAD((ST.hold_time_sum - (TRUNC(ST.hold_time_sum / 86400 * 24) * 60 * 60)) / 60, 2, '0') || ':00' hold_time_sum
+            FROM
+            (
+                SELECT
+                    rpt_cd,
+                    SUM(cnt_all) cnt_all,
+                    SUM((CASE WHEN RES_FL = 'N' THEN 1 ELSE 0 END)) RES_FL,
+                    SUM(CNT_ERR) CNT_ERR,
+                    SUM(CNT_FIN) CNT_FIN,
+                    SUM(CNT_INN) CNT_INN,
+                    SUM(CNT_OUT) CNT_OUT,
+                    WMSYS.WM_CONCAT(add_cont) add_cont,
+                    SUM((TRUNC(t0.err_time) * 60 * 60 + SUBSTR(t0.err_time, Instr(t0.err_time, '.', -1, 1) + 1) * 60)) error_time_sum,
+                    SUM((TRUNC(t0.hold_time) * 60 * 60 + SUBSTR(t0.hold_time, Instr(t0.hold_time, '.', -1, 1) + 1) * 60)) hold_time_sum
+                FROM
+                   SLM_DA_REPORTSUM t0
+                WHERE
+                   da_seq IN
+                            (SELECT
+                               da_seq
+                            FROM
+                               SLM_DA_REPORT
+                            WHERE
+                               rpt_gubun_cd = 'DAY' and fin_fl='Y'
+                            AND brief_dt &lt;= #{end_dt}
+                            AND brief_dt &gt;= #{start_dt})
+               GROUP BY rpt_cd
+           ) ST
+        ) T2
+        ON T1.rpt_cd = T2.rpt_cd
+
+    </select>
+
+    <!--월간주요현황점검현황 목록 가져오기-->
+    <select id="getRmonReportCheckDateUpDown" parameterType="map" resultType="slm.www.vo.rmon.CheckVO">
+        SELECT
+            LPAD(TRUNC(T0.error_time_sum / 86400 * 24), 2, '0') || ':' || RPAD((T0.error_time_sum - (TRUNC(T0.error_time_sum / 86400 * 24) * 60 * 60)) / 60, 2, '0') || ':00' error_time_sum,
+            LPAD(TRUNC(T0.hold_time_sum / 86400 * 24), 2, '0') || ':' || RPAD((T0.hold_time_sum - (TRUNC(T0.hold_time_sum / 86400 * 24) * 60 * 60)) / 60, 2, '0') || ':00' hold_time_sum,
+            T0.error_time_sum error_time_sum_second,
+            T0.hold_time_sum hold_time_sum_second
+        FROM
+            (
+            SELECT
+                SUM((TRUNC(t0.err_time) * 60 * 60 + SUBSTR(t0.err_time, Instr(t0.err_time, '.', -1, 1) + 1) * 60)) error_time_sum,
+                SUM((TRUNC(t0.hold_time) * 60 * 60 + SUBSTR(t0.hold_time, Instr(t0.hold_time, '.', -1, 1) + 1) * 60)) hold_time_sum
+            FROM
+                SLM_DA_REPORTSUM t0
+            WHERE
+                da_seq IN
+                    (SELECT
+                        da_seq
+                    FROM
+                        SLM_DA_REPORT
+                    WHERE
+                        rpt_gubun_cd = 'DAY' and fin_fl='Y'
+                    AND brief_dt &lt;= #{end_dt}
+                    AND brief_dt &gt;= #{start_dt})
+            ) T0
+    </select>
+
+    <!-- 월간주요현황 상세정보 가져오기 -->
+    <select id="getRmonReportData" parameterType="map" resultType="slm.www.vo.rmon.ReportVO">
+        SELECT
+        DA_SEQ,
+        ( SUBSTR(BRIEF_DT,1,4)||'-'||SUBSTR(BRIEF_DT,5,2)||'-'||SUBSTR(BRIEF_DT,7,2) ) as BRIEF_DT,
+        ( SUBSTR(START_DT,1,4)||'-'||SUBSTR(START_DT,5,2)||'-'||SUBSTR(START_DT,7,2) ) as START_DT,
+        ( SUBSTR(END_DT,1,4)||'-'||SUBSTR(END_DT,5,2)||'-'||SUBSTR(END_DT,7,2) ) as END_DT,
+        PFMC,
+        PLAN,
+        RPT_FILE
+        FROM
+        SLM_DA_REPORT
+
+        where RPT_GUBUN_CD='MON'
+        AND DA_SEQ = #{key}
+    </select>
+
+
+    <!-- 월간주요현황정보 Insert -->
+    <insert id="setReportInsert" parameterType="slm.www.vo.rmon.ReportVO">
+        INSERT INTO SLM_DA_REPORT
+        (
+        DA_SEQ,
+        BRIEF_DT,
+        RPT_GUBUN_CD,
+        START_DT,
+        END_DT,
+        PFMC,
+        PLAN,
+        RPT_FILE,
+        DATA_COPY_FL,
+        FIN_FL,
+        REG_DTS
+        ) VALUES
+        (
+        (select NVL(MAX(da_seq), 0) + 1 from SLM_DA_REPORT),
+        #{vo.brief_dt},
+        'MON',
+        #{vo.start_dt},
+        #{vo.end_dt},
+        #{vo.pfmc},
+        #{vo.plan},
+        (select ETC from COM_CODE WHERE COM_CD='MON' and jong_cd = 'OZ' and use_fl = 'Y' AND ROWNUM = 1),
+        'N',
+        'Y',
+        sysdate
+        )
+    </insert>
+
+    <!-- 월간주요현황정보 Update -->
+    <update id="setReportUpdate" parameterType="slm.www.vo.rmon.ReportVO">
+        UPDATE
+        SLM_DA_REPORT
+        SET
+        BRIEF_DT = #{vo.brief_dt},
+        START_DT = #{vo.start_dt},
+        END_DT = #{vo.end_dt},
+        PFMC = #{vo.pfmc},
+        PLAN = #{vo.plan}
+        WHERE
+        DA_SEQ = #{vo.da_seq}
+    </update>
+
+    <!-- 월간주요현황정보 Delete -->
+    <delete  id="setReportDelete" parameterType="slm.www.vo.rmon.ReportVO">
+        DELETE
+        FROM
+        SLM_DA_REPORT
+        WHERE
+        DA_SEQ= #{vo.da_seq}
+    </delete>
+
+    <!-- 월간주요현황 장애세부내역 총 개수 가져오기 -->
+    <select id="getTroubleDetailListCnt" parameterType="map" resultType="int">
+        SELECT
+                           COUNT(1)
+                        FROM
+                        (
+                         SELECT
+                          C.dis_seq as dis_seq,
+                          (SELECT cd_nm FROM COM_CODE WHERE jong_cd = 'ET' AND C.type_cd = com_cd AND ROWNUM = 1 ) dis_type,
+                          (SELECT cd_nm FROM COM_CODE WHERE jong_cd = 'EG' AND com_cd = A.eqp_grp_cd  AND ROWNUM = 1 ) eqp_type,
+                          A.eqp_nm as eqp_nm,
+                          C.fin_fl as fin_fl,
+                          (SUBSTR(C.occur_dt,1,4)||'-'||SUBSTR(C.occur_dt,5,2)||'-'||SUBSTR(C.occur_dt,7,2)) occur_dt,
+                          (SUBSTR(C.sv_stop_dt,1,4)||'-'||SUBSTR(C.sv_stop_dt,5,2)||'-'||SUBSTR(C.sv_stop_dt,7,2)) sv_stop_dt,
+                          (SUBSTR(C.sv_start_dt,1,4)||'-'||SUBSTR(C.sv_start_dt,5,2)||'-'||SUBSTR(C.sv_start_dt,7,2)) sv_start_dt,
+                          (SUBSTR(C.mea_plan_dt,1,4)||'-'||SUBSTR(C.mea_plan_dt,5,2)||'-'||SUBSTR(C.mea_plan_dt,7,2)) mea_plan_dt,
+                          (SUBSTR(C.mea_fin_dt,1,4)||'-'||SUBSTR(C.mea_fin_dt,5,2)||'-'||SUBSTR(C.mea_fin_dt,7,2)) mea_fin_dt
+                     FROM
+                          SLM_EQUIPMENT A, (
+                                            SELECT
+                                                T0.eqp_cd
+                                            FROM
+                                                SLM_DA_REPORTMAP T0, SLM_DA_REPORT T1
+                                            WHERE
+                                                T0.da_seq = T1.da_seq
+                                                AND T1.rpt_gubun_cd = 'DAY'
+                                                AND T1.fin_fl ='Y'
+                                                AND T1.brief_dt &lt;= #{end_dt}
+                                                AND T1.brief_dt &gt;= #{start_dt}
+                                            GROUP BY T0.eqp_cd
+                                           ) B, SLM_DISORDER C
+                     WHERE
+                          C.eqp_cd = B.eqp_cd
+                     AND
+                          A.eqp_cd = B.eqp_cd
+                     AND
+                          A.eqp_cd = C.eqp_cd
+                     AND
+                          A.use_fl = 'Y'
+                     AND
+                          SUBSTR(C.occur_dt, 1, 8) &lt;= #{end_dt}
+                     AND
+                          SUBSTR(C.occur_dt, 1, 8) &gt;= #{start_dt}
+                        )
+
+    </select>
+    
+    <!-- 월간주요현황 장애세부내역 가져오기-->
+    <select id="getTroubleDetailList" parameterType="map" resultType="slm.www.vo.rmon.TroubleVO">
+        SELECT
+            *
+        FROM
+            (
+                SELECT
+                     ROWNUM as rnum,
+                     T.*
+                FROM
+                    (
+                     SELECT
+                          C.dis_seq as dis_seq,
+                          (SELECT cd_nm FROM COM_CODE WHERE jong_cd = 'ET' AND C.type_cd = com_cd AND ROWNUM = 1 ) dis_type,
+                          (SELECT cd_nm FROM COM_CODE WHERE jong_cd = 'EG' AND com_cd = A.eqp_grp_cd  AND ROWNUM = 1 ) eqp_type,
+                          A.eqp_nm as eqp_nm,
+                          C.fin_fl as fin_fl,
+                          (SUBSTR(C.occur_dt,1,4)||'-'||SUBSTR(C.occur_dt,5,2)||'-'||SUBSTR(C.occur_dt,7,2)) occur_dt,
+                          (SUBSTR(C.sv_stop_dt,1,4)||'-'||SUBSTR(C.sv_stop_dt,5,2)||'-'||SUBSTR(C.sv_stop_dt,7,2)) sv_stop_dt,
+                          (SUBSTR(C.sv_start_dt,1,4)||'-'||SUBSTR(C.sv_start_dt,5,2)||'-'||SUBSTR(C.sv_start_dt,7,2)) sv_start_dt,
+                          (SUBSTR(C.mea_plan_dt,1,4)||'-'||SUBSTR(C.mea_plan_dt,5,2)||'-'||SUBSTR(C.mea_plan_dt,7,2)) mea_plan_dt,
+                          (SUBSTR(C.mea_fin_dt,1,4)||'-'||SUBSTR(C.mea_fin_dt,5,2)||'-'||SUBSTR(C.mea_fin_dt,7,2)) mea_fin_dt
+                     FROM
+                          SLM_EQUIPMENT A, (
+                                            SELECT
+                                                T0.eqp_cd
+                                            FROM
+                                                SLM_DA_REPORTMAP T0, SLM_DA_REPORT T1
+                                            WHERE
+                                                T0.da_seq = T1.da_seq
+                                                AND T1.rpt_gubun_cd = 'DAY'
+                                                AND T1.fin_fl ='Y'
+                                                AND T1.brief_dt &lt;= #{end_dt}
+                                                AND T1.brief_dt &gt;= #{start_dt}
+                                            GROUP BY T0.eqp_cd
+                                           ) B, SLM_DISORDER C
+                     WHERE
+                          C.eqp_cd = B.eqp_cd
+                     AND
+                          A.eqp_cd = B.eqp_cd
+                     AND
+                          A.eqp_cd = C.eqp_cd
+                     AND
+                          A.use_fl = 'Y'
+                     AND
+                          SUBSTR(C.occur_dt, 1, 8) &lt;= #{end_dt}
+                     AND
+                          SUBSTR(C.occur_dt, 1, 8) &gt;= #{start_dt}
+                   ) T
+        ) A0
+         WHERE
+            A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+        <trim prefix="ORDER BY" prefixOverrides=",">
+            <choose>
+                <when test="vo.sortID != null and vo.sortID != ''">
+                    , ${vo.sortID} ${vo.sortDesc}
+                </when>
+            </choose>
+        </trim>
+
+    </select>
+
+    <!-- 장애현황 장애현황표 목록 가져오기 -->
+    <select id="getTroubleGridList" parameterType="map" resultType="slm.www.vo.rmon.TroubleVO">
+        SELECT
+            B.eqp_cd as eqp_cd,
+            D.da_seq as da_seq,
+            C.rpt_cd as rpt_cd,
+            (SELECT cd_nm FROM COM_CODE WHERE jong_cd = 'EG' AND com_cd = A.eqp_grp_cd ) as eqp_type,
+            A.eqp_nm as eqp_nm,
+            SUM(C.cnt_err)OVER(PARTITION BY B.eqp_cd) as cnt_err
+        FROM
+            SLM_EQUIPMENT A, SLM_DA_REPORTMAP B, SLM_DA_REPORTSUM C, SLM_DA_REPORT D
+        WHERE
+            B.da_seq = C.da_seq
+        AND
+            B.rpt_cd = C.rpt_cd
+        AND
+            C.da_seq = D.da_seq
+        AND
+            D.fin_fl = 'Y'
+        AND
+            D.rpt_gubun_cd = 'DAY'
+        AND
+            D.brief_dt &lt;= #{end_dt}
+        AND
+            D.brief_dt &gt;= #{start_dt}
+        AND
+            A.eqp_cd = B.eqp_cd
+
+    </select>
+
+    <!-- 장애현황 장애현황표 월별 헤더 및 컬럼명 가져오기 -->
+    <select id="getTroubleAmt" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            (MAKE_DATES+LEVEL-1) id,
+            LEVEL as val
+        FROM
+            (SELECT #{start_dt} MAKE_DATES FROM DUAL)
+        <if test="subStart_dt == 30">
+            CONNECT BY LEVEL &lt;= 30
+        </if>
+        <if test="subStart_dt == 28">
+            CONNECT BY LEVEL &lt;= 28
+        </if>
+        <if test="subStart_dt == 31">
+            CONNECT BY LEVEL &lt;= 31
+        </if>
+
+    </select>
+
+    <!-- 장애현황 장애현황표(장애 발생일 포함) 목록 가져오기-->
+    <select id="getTroubleDayList" parameterType="map" resultType="map">
+        SELECT
+            *
+        FROM
+              (
+                SELECT
+                    /*+LEADING(T0 T1) USE_NL(T0) INDEX_DESC(T1 SLM_EQUIPMENT_PK)*/ T1.da_seq,T1.rpt_cd, T1.cnt_err, T0.brief_dt as brief_dt
+                FROM
+                    SLM_DA_REPORT T0, SLM_DA_REPORTSUM T1
+                WHERE
+                    T0.da_seq = T1.da_seq
+                AND
+                    T0.brief_dt &gt;= #{start_dt}
+                AND
+                    T0.brief_dt &lt;= #{end_dt}
+                AND
+                    T0.rpt_gubun_cd = 'DAY'
+                AND
+                    T0.fin_fl = 'Y'
+                <foreach collection="arrRptCD" item="item" index="index" separator="," open="AND T1.rpt_cd IN (" close=")">
+                  #{item}
+                </foreach>
+              )
+              PIVOT
+              (
+                MIN(DECODE(cnt_err, '0', ' ',
+                                    null,' ', '●' ))
+                FOR brief_dt IN
+                <foreach collection="arrDayKey" item="item" index="index" separator="," open="(" close=")">
+                  '${item}' AS ${colPrefix}${item}
+                </foreach>
+              )
+    </select>
+</mapper>

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.security.AuthorityDao">
+
+    <!-- 권한 총 개수 가져오기 -->
+    <select id="getAuthListCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            COM_MEM_AUTH
+
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcAuth != null and srcAuth != ''">
+                    AND nm  LIKE '%${srcAuth}%'
+                </if>
+                <if test="srcEtc != null and srcEtc != ''">
+                    AND etc  LIKE '%${srcEtc}%'
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!-- 권한 목록 가져오기 -->
+    <select id="getAuthList" parameterType="map" resultType="slm.www.vo.security.AuthorityVO">
+        SELECT
+            *
+        FROM
+        (
+            SELECT
+                ROWNUM as rnum,
+                T.*
+            FROM
+            (
+                SELECT
+                    T0.*,
+                    TRUNC(T0.reg_dts - TO_DATE('19700101', 'yyyymmdd')) * 60 * 60 * 24 - (9 * 60 * 60) + TO_CHAR(T0.reg_dts, 'sssss') reg_dts_ux
+                FROM
+                    COM_MEM_AUTH T0
+
+                <where>
+                    <if test="vo.isSearch == true">
+                        <if test="srcAuth != null and srcAuth != ''">
+                            AND T0.nm  LIKE '%${srcAuth}%'
+                        </if>
+                        <if test="srcEtc != null and srcEtc != ''">
+                            AND T0.etc  LIKE '%${srcEtc}%'
+                        </if>
+                        <if test="vo.defWhere != null">
+                            AND ${vo.defWhere}
+                        </if>
+                    </if>
+                </where>
+
+                <trim prefix="ORDER BY" prefixOverrides=",">
+                    <choose>
+                        <when test="vo.sortID != null and vo.sortID != ''">
+                            , ${vo.sortID} ${vo.sortDesc}
+                        </when>
+                        <otherwise>
+                            , T0.reg_dts DESC
+                        </otherwise>
+                    </choose>
+                </trim>
+            ) T
+        ) A0
+
+        WHERE
+            A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+    </select>
+
+    <!-- 권한코드 중복확인 -->
+    <select id="getAuthChk" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            COM_MEM_AUTH
+        WHERE
+            auth_cd = #{key}
+    </select>
+
+    <!-- 권한 정보 Insert/Update 처리 -->
+    <update id="setAuthAct" parameterType="map">
+        MERGE INTO COM_MEM_AUTH
+            USING DUAL
+            ON ( auth_cd = #{vo.auth_cd} )
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                nm = #{vo.nm},
+                etc = #{vo.etc}
+
+        WHEN NOT MATCHED THEN
+            INSERT (auth_cd, nm, etc, reg_dts)
+            VALUES (
+                #{vo.auth_cd, jdbcType=VARCHAR},
+                #{vo.nm, jdbcType=VARCHAR},
+                #{vo.etc, jdbcType=VARCHAR},
+                SYSDATE
+            )
+    </update>
+
+    <!-- 메뉴접근 설정 데이터 존재 유무 판단 -->
+    <select id="getAuthMenuCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            COM_MEM_MNU
+        WHERE
+            acs_auth_cd = #{key}
+            AND acs_mem_id IS NULL
+    </select>
+
+    <!-- 메뉴접근 설정 Insert -->
+    <insert id="setAuthMenuInsert" parameterType="map">
+        INSERT ALL
+        <foreach collection="listData" item="item" index="index" >
+            INTO COM_MEM_MNU (seq, mnu_cd, acs_auth_cd, acs_mem_id, use_fl, read_fl, reg_fl, mod_fl, del_fl, reg_dts)
+            VALUES (
+                #{firstSeq} + #{index},
+                #{item.mnu_cd, jdbcType=VARCHAR},
+                #{authCd, jdbcType=VARCHAR},
+                NULL,
+                #{item.use_fl, jdbcType=VARCHAR},
+                #{item.read_fl, jdbcType=VARCHAR},
+                #{item.reg_fl, jdbcType=VARCHAR},
+                #{item.mod_fl, jdbcType=VARCHAR},
+                #{item.del_fl, jdbcType=VARCHAR},
+                SYSDATE
+            )
+        </foreach>
+        SELECT * FROM DUAL
+    </insert>
+
+    <!-- 메뉴접근 설정 Update -->
+    <update id="setAuthMenuUpdate" parameterType="map">
+        UPDATE
+            COM_MEM_MNU
+
+        <set>
+            acs_auth_cd = #{authCd, jdbcType=VARCHAR},
+            use_fl = #{vo.use_fl, jdbcType=VARCHAR},
+            read_fl = #{vo.read_fl, jdbcType=VARCHAR},
+            reg_fl = #{vo.reg_fl, jdbcType=VARCHAR},
+            mod_fl = #{vo.mod_fl, jdbcType=VARCHAR},
+            del_fl = #{vo.del_fl, jdbcType=VARCHAR},
+            reg_dts = SYSDATE
+        </set>
+
+        WHERE
+            mnu_cd = #{vo.mnu_cd, jdbcType=VARCHAR}
+            AND acs_auth_cd = #{authCd, jdbcType=VARCHAR}
+            AND acs_mem_id IS NULL
+    </update>
+</mapper>

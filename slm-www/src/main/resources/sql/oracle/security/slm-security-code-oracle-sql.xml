@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.security.CodeDao">
+
+    <!--코드구분 가져오기-->
+    <select id="getCodeGubunList" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            jong_cd AS id,
+            nm AS val
+        FROM
+            COM_CODE_JONG
+        ORDER BY
+            nm
+    </select>
+
+    <!-- 코드 총 개수 가져오기 -->
+    <select id="getCodeListCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            COM_CODE
+
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcJong != null and srcJong != ''">
+                    AND jong_cd = #{srcJong}
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!-- 코드 목록 가져오기 -->
+    <select id="getCodeList" parameterType="map" resultType="slm.www.vo.security.CodeVO">
+        SELECT
+            *
+        FROM
+        (
+            SELECT
+                ROWNUM as rnum,
+                T.*
+            FROM
+            (
+                SELECT
+                    T0.*,
+                    (SELECT nm FROM COM_CODE_JONG WHERE jong_cd = T0.jong_cd AND ROWNUM = 1) jong_nm,
+                    TRUNC(T0.reg_dts - TO_DATE('19700101', 'yyyymmdd')) * 60 * 60 * 24 - (9 * 60 * 60) + TO_CHAR(T0.reg_dts, 'sssss') reg_dts_ux
+                FROM
+                    COM_CODE T0
+
+                <where>
+                    <if test="vo.isSearch == true">
+                        <if test="srcJong != null and srcJong != ''">
+                            AND T0.jong_cd = #{srcJong}
+                        </if>
+                        <if test="vo.defWhere != null">
+                            AND ${vo.defWhere}
+                        </if>
+                    </if>
+                </where>
+
+                <trim prefix="ORDER BY" prefixOverrides=",">
+                    <choose>
+                        <when test="vo.sortID != null and vo.sortID != ''">
+                            , ${vo.sortID} ${vo.sortDesc}
+                        </when>
+                        <otherwise>
+                            , jong_nm
+                        </otherwise>
+                    </choose>
+                </trim>
+            ) T
+        ) A0
+
+        WHERE
+            A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+    </select>
+
+    <!-- 코드정보 Insert -->
+    <insert id="setCodeInsert" parameterType="slm.www.vo.security.CodeVO">
+        INSERT INTO
+		    COM_CODE(com_cd, jong_cd, cd_nm, cd_unit, prime, sort_seq, hig_cd, link_cd, use_fl, etc, reg_dts)
+		VALUES(
+            #{vo.com_cd, jdbcType=VARCHAR},
+            #{vo.jong_nm, jdbcType=VARCHAR},
+            #{vo.cd_nm, jdbcType=VARCHAR},
+            #{vo.cd_unit, jdbcType=VARCHAR},
+            #{vo.prime, jdbcType=INTEGER},
+            #{vo.sort_seq, jdbcType=INTEGER},
+            #{vo.hig_cd, jdbcType=VARCHAR},
+            #{vo.link_cd, jdbcType=VARCHAR},
+            #{vo.use_fl, jdbcType=VARCHAR},
+            #{vo.etc, jdbcType=VARCHAR},
+            SYSDATE
+        )
+    </insert>
+
+    <!-- 코드정보 Update -->
+    <update id="setCodeUpdate" parameterType="slm.www.vo.security.CodeVO">
+        UPDATE
+            COM_CODE
+
+        <set>
+            cd_nm = #{vo.cd_nm, jdbcType=VARCHAR},
+            use_fl = #{vo.use_fl, jdbcType=VARCHAR}
+        </set>
+
+        WHERE
+            com_cd = #{vo.com_cd, jdbcType=VARCHAR}
+            AND jong_cd = #{vo.jong_nm, jdbcType=VARCHAR}
+    </update>
+</mapper>

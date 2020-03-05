@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.rday.ReferenceDao">
+
+    <!--점검기준표목록 가져오기-->
+    <select id="getRdayReferenceList" parameterType="map" resultType="slm.www.vo.rday.ReferenceVO">
+        SELECT
+            B.grp_nm ,
+            A.basis_nm,
+            A.cont,
+            A.good,
+            A.warning,
+            A.wrong
+        FROM
+            SLM_EQUIP_EVALITEM A ,SLM_EQUIP_EVALGROUP B WHERE A.GRP_CD=B.GRP_CD
+        ORDER BY
+            A.ITM_CD
+    </select>
+</mapper>

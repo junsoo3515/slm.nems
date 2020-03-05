@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.security.RptCodeDao">
+    <!--장비 가져오기(Select2)-->
+    <select id="getEquipSelect2" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            eqp_cd as id,
+            eqp_nm as text
+        FROM
+            SLM_EQUIPMENT
+        WHERE
+            eqp_nm LIKE '%${word}%'
+    </select>
+
+    <!--보고서 코드 관리 총 개수 가져오기-->
+    <select id="getReportCodeListCnt" parameterType="map" resultType="int">
+        SELECT
+           COUNT(1)
+        FROM
+           SLM_REPORT_CODE
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcWord != null and srcWord != ''">
+                    AND ( rpt_cd LIKE '%${srcWord}%' OR nm LIKE '%${srcWord}%')
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+        START WITH hig_rpt_cd = '0101000000'
+        CONNECT BY PRIOR rpt_cd = hig_rpt_cd
+        ORDER BY rpt_depth
+    </select>
+
+    <!--보고서 코드 관리 목록 가져오기-->
+    <select id="getReportCodeList" parameterType="map" resultType="slm.www.vo.security.RptCodeVO">
+        SELECT
+            rpt_cd,
+            hig_rpt_cd,
+            nm,
+            rpt_depth,
+            inspector,
+            confirmor,
+            use_fl,
+            res_fl,
+            sw_type_fl,
+            mrpt_use_fl,
+            rpt_sort_seq,
+            mrpt_sort_seq
+        FROM
+        (
+           SELECT
+              ROWNUM as rnum,
+              T.*
+           FROM
+        (
+              SELECT
+                 *
+              FROM
+                 SLM_REPORT_CODE
+             <where>
+                 <if test="vo.isSearch == true">
+                     <if test="srcWord != null and srcWord != ''">
+                         AND ( rpt_cd LIKE '%${srcWord}%' OR nm LIKE '%${srcWord}%')
+                     </if>
+                     <if test="vo.defWhere != null">
+                         AND ${vo.defWhere}
+                     </if>
+                 </if>
+             </where>
+        START WITH hig_rpt_cd = '0101000000'
+        CONNECT BY PRIOR rpt_cd = hig_rpt_cd
+        ORDER BY rpt_depth
+        ) T
+        ) A0
+
+        WHERE
+           A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+
+    </select>
+
+    <!--보고서 코드 관리 저장 INSERT-->
+    <insert id="setReportCodeInsert" parameterType="map">
+        INSERT INTO SLM_REPORT_CODE (rpt_cd, hig_rpt_cd, nm, rpt_depth, inspector, confirmor, use_fl, res_fl, sw_type_fl, mrpt_use_fl, rpt_sort_seq, mrpt_sort_seq)
+        VALUES (#{vo.rpt_cd, jdbcType=VARCHAR},
+                #{vo.hig_rpt_cd, jdbcType=VARCHAR},
+                #{vo.nm, jdbcType=VARCHAR},
+                #{vo.rpt_depth, jdbcType=INTEGER},
+                #{vo.inspector, jdbcType=VARCHAR},
+                #{vo.confirmor, jdbcType=VARCHAR},
+                #{vo.use_fl, jdbcType=VARCHAR},
+                #{vo.res_fl, jdbcType=VARCHAR},
+                #{vo.sw_type_fl, jdbcType=VARCHAR},
+                #{vo.mrpt_use_fl, jdbcType=VARCHAR},
+                #{vo.rpt_sort_seq, jdbcType=INTEGER},
+                #{vo.mrpt_sort_seq, jdbcType=INTEGER})
+    </insert>
+
+    <!--보고서 코드 관리 저장 UPDATE-->
+    <update id="setReportCodeUpdate" parameterType="map">
+        UPDATE
+            SLM_REPORT_CODE
+        SET
+            nm = #{vo.nm, jdbcType=VARCHAR},
+            rpt_depth = #{vo.rpt_depth, jdbcType=INTEGER},
+            inspector = #{vo.inspector, jdbcType=VARCHAR},
+            confirmor = #{vo.confirmor, jdbcType=VARCHAR},
+            use_fl = #{vo.use_fl, jdbcType=VARCHAR},
+            res_fl = #{vo.res_fl, jdbcType=VARCHAR},
+            sw_type_fl = #{vo.sw_type_fl, jdbcType=VARCHAR},
+            mrpt_use_fl = #{vo.mrpt_use_fl, jdbcType=VARCHAR},
+            rpt_sort_seq = #{vo.rpt_sort_seq, jdbcType=INTEGER},
+            mrpt_sort_seq = #{vo.mrpt_sort_seq, jdbcType=INTEGER}
+        WHERE
+           rpt_cd = #{vo.rpt_cd, jdbcType=VARCHAR}
+        AND
+            hig_rpt_cd = #{vo.hig_rpt_cd, jdbcType=VARCHAR}
+
+    </update>
+
+    <!--장비연계 총 개수 가져오기-->
+    <select id="getReportEquipMapListCnt" parameterType="map" resultType="int">
+        SELECT
+        COUNT(1)
+        FROM
+            SLM_REPORT_EQUIPMAP
+        WHERE
+            rpt_cd = #{rpt_cd, jdbcType=VARCHAR}
+    </select>
+
+    <!--장비연계 목록 가져오기-->
+    <select id="getReportEquipMapList" parameterType="map" resultType="slm.www.vo.security.RptCodeVO">
+        SELECT
+            A.rpt_cd as rpt_cd,
+            A.eqp_cd as prev_eqp_cd,
+            A.eqp_cd as eqp_cd,
+            A.sort_seq as sort_seq,
+            A.sort_seq as prev_sort_seq,
+            B.eqp_nm as eqp_nm
+        FROM
+           SLM_REPORT_EQUIPMAP A, SLM_EQUIPMENT B
+        WHERE
+            A.eqp_cd = B.eqp_cd
+            AND
+            A.rpt_cd = #{rpt_cd, jdbcType=VARCHAR}
+        ORDER BY
+            sort_seq ASC
+
+    </select>
+
+    <!--장비 연계 INSERT-->
+    <insert id="setReportEquipMapInsert" parameterType="map">
+        INSERT INTO SLM_REPORT_EQUIPMAP (rpt_cd, eqp_cd, sort_seq)
+        VALUES (#{vo.rpt_cd, jdbcType=VARCHAR}, #{vo.eqp_nm, jdbcType=VARCHAR}, #{vo.sort_seq, jdbcType=INTEGER})
+    </insert>
+
+    <!--장비 연계 UPDATE-->
+    <update id="setReportEquipMapUpdate" parameterType="map">
+        UPDATE
+            SLM_REPORT_EQUIPMAP
+        SET
+            eqp_cd = #{vo.eqp_nm, jdbcType=VARCHAR},
+            sort_seq = #{vo.sort_seq, jdbcType=INTEGER}
+        WHERE
+            rpt_cd = #{vo.rpt_cd, jdbcType=VARCHAR}
+        AND
+            eqp_cd = #{vo.prev_eqp_cd, jdbcType=VARCHAR}
+        AND
+            sort_seq = #{vo.prev_sort_seq, jdbcType=INTEGER}
+    </update>
+
+    <!--장비 연계 DELETE-->
+    <delete id="setReportEquipMapDelete" parameterType="map">
+        DELETE
+        FROM
+            SLM_REPORT_EQUIPMAP
+        WHERE
+            rpt_cd = #{vo.rpt_cd, jdbcType=VARCHAR}
+        AND
+            eqp_cd = #{vo.prev_eqp_cd, jdbcType=VARCHAR}
+        AND
+            sort_seq = #{vo.sort_seq, jdbcType=INTEGER}
+    </delete>
+
+    <!--부모코드 가져오기-->
+    <select id="getHigRptCdList" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            rpt_cd as id,
+            nm as val
+        FROM
+            SLM_REPORT_CODE
+        START WITH hig_rpt_cd = '0101000000'
+        CONNECT BY PRIOR rpt_cd = hig_rpt_cd
+    </select>
+
+    <!--장비연계 정렬순서 변경-->
+    <update id="setEqpMapPosUpdate1" parameterType="map">
+        UPDATE
+        SLM_REPORT_EQUIPMAP
+        <set>
+            <if test="vo.sort_seq &gt; vo.rowIndex">
+                sort_seq = sort_seq+1
+                WHERE sort_seq IN (SELECT sort_seq FROM SLM_REPORT_EQUIPMAP WHERE sort_seq &gt;= #{vo.rowIndex, jdbcType=VARCHAR} AND sort_seq &lt; #{vo.sort_seq, jdbcType=VARCHAR})  AND rpt_cd = #{vo.rpt_cd, jdbcType=VARCHAR}
+            </if>
+            <if test="vo.sort_seq &lt; vo.rowIndex">
+                sort_seq = sort_seq-1
+                WHERE sort_seq IN (SELECT sort_seq FROM SLM_REPORT_EQUIPMAP WHERE sort_seq &gt; #{vo.sort_seq, jdbcType=VARCHAR} AND sort_seq &lt;= #{vo.rowIndex, jdbcType=VARCHAR})  AND rpt_cd = #{vo.rpt_cd, jdbcType=VARCHAR}
+            </if>
+        </set>
+    </update>
+
+    <!--장비연계 정렬순서 변경-->
+    <update id="setEqpMapPosUpdate2" parameterType="map">
+        UPDATE
+        SLM_REPORT_EQUIPMAP
+        SET
+        sort_seq = #{vo.rowIndex, jdbcType=VARCHAR}
+        WHERE
+        sort_seq = #{vo.sort_seq, jdbcType=VARCHAR}
+        AND
+        rpt_cd = #{vo.rpt_cd, jdbcType=VARCHAR}
+        AND
+        eqp_cd = #{vo.eqp_cd, jdbcType=VARCHAR}
+    </update>
+</mapper>

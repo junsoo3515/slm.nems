@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.security.UserDao">
+
+    <!--사용자 계정관리 Count 가져오기-->
+    <select id="getUserListCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            COM_MEM_INFO
+
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcAuth != null and srcAuth != ''">
+                    AND auth_cd = #{srcAuth}
+                </if>
+                <if test="srcId != null and srcId != ''">
+                    AND ( mem_id LIKE '%${srcId}%' OR nm LIKE '%${srcEtc}%' OR email LIKE '%${srcEtc}%' )
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!--사용자 계정관리 가져오기-->
+    <select id="getUserList" parameterType="map" resultType="slm.www.vo.security.UserVO">
+        SELECT
+            *
+        FROM
+        (
+            SELECT
+                ROWNUM as rnum,
+                T.*
+            FROM
+            (
+                SELECT
+                    T0.mem_seq,
+                    T0.mem_id,
+                    T0.nm,
+                    T0.tel_hp,
+                    T0.tel_office,
+                    T0.email,
+                    T0.use_fl,
+                    T1.nm AS auth_nm,
+                    T1.auth_cd,
+                    (SELECT files_seq FROM COM_FILES WHERE real_seq = T0.mem_id AND real_tb = 'COM_MEM_INFO' AND gubun_cd = 'A' AND ROWNUM = 1 ) files_seq
+                FROM
+                    COM_MEM_INFO T0, COM_MEM_AUTH T1
+
+                <where>
+                    T0.auth_cd = T1.auth_cd
+
+                    <if test="vo.isSearch == true">
+                        <if test="srcAuth != null and srcAuth != ''">
+                            AND T0.auth_cd = #{srcAuth}
+                        </if>
+                        <if test="srcId != null and srcId != ''">
+                            AND ( mem_id LIKE '%${srcId}%' OR nm LIKE '%${srcEtc}%' OR email LIKE '%${srcEtc}%' )
+                        </if>
+                        <if test="vo.defWhere != null">
+                            AND ${vo.defWhere}
+                        </if>
+                    </if>
+                </where>
+
+                <trim prefix="ORDER BY" prefixOverrides=",">
+                    <choose>
+                        <when test="vo.sortID != null and vo.sortID != ''">
+                        , ${vo.sortID} ${vo.sortDesc}
+                        </when>
+                        <otherwise>
+                        , T0.mem_seq DESC
+                        </otherwise>
+                    </choose>
+                </trim>
+            ) T
+        ) A0
+
+        WHERE
+            A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+    </select>
+
+    <!-- 사용자 상세정보 가져오기 -->
+    <select id="getUserData" parameterType="map" resultType="slm.www.vo.security.UserVO">
+        SELECT
+            *
+        FROM
+            COM_MEM_INFO
+        WHERE
+            mem_seq = #{key}
+            AND ROWNUM = 1
+    </select>
+
+    <!-- 사용자 상세정보 가져오기 -->
+    <select id="getUserDataId" parameterType="map" resultType="slm.www.vo.security.UserVO">
+        SELECT
+            A.*,
+            (SELECT files_seq FROM COM_FILES WHERE real_seq = A.mem_id AND real_tb = 'COM_MEM_INFO' AND gubun_cd = 'A' AND ROWNUM = 1) files_seq
+        FROM
+            COM_MEM_INFO A
+        WHERE
+            A.mem_id = #{mem_id}
+            AND ROWNUM = 1
+    </select>
+
+    <!-- 사용자 ID Check -->
+    <select id="getIDChk" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            COM_MEM_INFO
+        WHERE
+            mem_id = #{key, jdbcType=VARCHAR}
+    </select>
+
+    <!-- 로그인 실패 횟수 초기화 Update -->
+    <update id="setUserFailPwdClear" parameterType="map">
+        UPDATE
+            COM_MEM_INFO
+
+        <set>
+            fail_pwd_cnt = 0,
+            mod_dts = SYSDATE
+        </set>
+
+        WHERE
+            mem_id = #{key, jdbcType=VARCHAR}
+    </update>
+
+    <!--사용자 정보 insert-->
+    <insert id="setUserInsert" parameterType="map">
+		INSERT INTO
+		    COM_MEM_INFO(mem_id, mem_seq, nm, pwd, email, tel_hp, tel_office, auth_cd, use_fl, etc, fail_pwd_cnt, reg_mem_id, reg_dts, mod_dts)
+		VALUES(
+            #{vo.mem_id, jdbcType=VARCHAR},
+            ( SELECT NVL(MAX(mem_seq), 0) + 1 FROM COM_MEM_INFO ),
+            #{vo.nm, jdbcType=VARCHAR},
+            #{vo.pwd, jdbcType=VARCHAR},
+            #{vo.email, jdbcType=VARCHAR},
+            #{vo.tel_hp, jdbcType=VARCHAR},
+            #{vo.tel_office, jdbcType=VARCHAR},
+            #{vo.auth_cd, jdbcType=VARCHAR},
+            #{vo.use_fl, jdbcType=VARCHAR},
+            #{vo.etc, jdbcType=VARCHAR},
+            0,
+            #{vo.reg_mem_id, jdbcType=VARCHAR},
+            SYSDATE,
+            SYSDATE
+        )
+	</insert>
+
+    <!--사용자 정보 update-->
+    <update id="setUserUpdate" parameterType="map">
+        UPDATE
+            COM_MEM_INFO
+
+        <set>
+            nm = #{vo.nm},
+            <if test="vo.pwd != null and vo.pwd != ''"> pwd = #{vo.pwd}, </if>
+            email = #{vo.email},
+            tel_hp = #{vo.tel_hp},
+            tel_office = #{vo.tel_office},
+            auth_cd = #{vo.auth_cd},
+            use_fl = #{vo.use_fl},
+            etc = #{vo.etc},
+            mod_dts = SYSDATE
+        </set>
+
+        WHERE mem_id = #{vo.mem_id}
+    </update>
+
+    <!-- 메뉴접근 설정 데이터 존재 유무 판단 -->
+    <select id="getUserAuthCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            COM_MEM_MNU
+        WHERE
+            acs_mem_id = #{key}
+    </select>
+
+    <!-- 메뉴접근 설정 Insert -->
+    <insert id="setUserAuthInsert" parameterType="map">
+        INSERT ALL
+        <foreach collection="listData" item="item" index="index" >
+            INTO COM_MEM_MNU (seq, mnu_cd, acs_auth_cd, acs_mem_id, use_fl, read_fl, reg_fl, mod_fl, del_fl, reg_dts)
+            VALUES (
+                #{firstSeq} + #{index},
+                #{item.mnu_cd, jdbcType=VARCHAR},
+                #{authCd, jdbcType=VARCHAR},
+                #{memId, jdbcType=VARCHAR},
+                #{item.use_fl, jdbcType=VARCHAR},
+                #{item.read_fl, jdbcType=VARCHAR},
+                #{item.reg_fl, jdbcType=VARCHAR},
+                #{item.mod_fl, jdbcType=VARCHAR},
+                #{item.del_fl, jdbcType=VARCHAR},
+                SYSDATE
+            )
+        </foreach>
+        SELECT * FROM DUAL
+    </insert>
+
+    <!-- 메뉴접근 설정 Update -->
+    <update id="setUserAuthUpdate" parameterType="map">
+        UPDATE
+            COM_MEM_MNU
+
+        <set>
+            acs_auth_cd = #{authCd, jdbcType=VARCHAR},
+            use_fl = #{vo.use_fl, jdbcType=VARCHAR},
+            read_fl = #{vo.read_fl, jdbcType=VARCHAR},
+            reg_fl = #{vo.reg_fl, jdbcType=VARCHAR},
+            mod_fl = #{vo.mod_fl, jdbcType=VARCHAR},
+            del_fl = #{vo.del_fl, jdbcType=VARCHAR},
+            reg_dts = SYSDATE
+        </set>
+
+        WHERE
+            mnu_cd = #{vo.mnu_cd, jdbcType=VARCHAR}
+            AND acs_mem_id = #{memId, jdbcType=VARCHAR}
+    </update>
+</mapper>

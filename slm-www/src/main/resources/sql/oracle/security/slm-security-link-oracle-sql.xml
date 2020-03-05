@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.security.LinkDao">
+
+    <!--연계시스템(NMS) 코드 총 개수 가져오기-->
+    <select id="getNmsCodeListCnt" parameterType="map" resultType="int">
+        SELECT
+           COUNT(1)
+        FROM
+           LINK_SYSTEM_CODE
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcCode != null and srcCode != ''">
+                    AND host_cd LIKE '%${srcCode}%'
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!--연계시스템(NMS) 코드 목록 가져오기-->
+    <select id="getNmsCodeList" parameterType="map" resultType="slm.www.vo.security.LinkVO">
+        SELECT
+           T.host_cd as host_cd,
+           T.host_cd as prev_host_cd
+        FROM
+        (
+           SELECT
+              ROWNUM as rnum,
+              host_cd
+           FROM
+              LINK_SYSTEM_CODE
+          <where>
+              <if test="vo.isSearch == true">
+                  <if test="srcCode != null and srcCode != ''">
+                      AND ( T0.host_cd LIKE '%${srcCode}%' OR T1.itm_cd LIKE '%${srcCode}%')
+                  </if>
+                  <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                  </if>
+              </if>
+          </where>
+        ) T
+
+        WHERE
+           T.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+        ORDER BY
+           T.host_cd
+    </select>
+
+    <!--연계서비스(NMS) 코데 데이터 UPDATE-->
+    <update id="setNmsCodeUpdate" parameterType="map">
+        UPDATE
+          LINK_SYSTEM_CODE
+        <set>
+            host_cd = #{vo.host_cd, jdbcType=VARCHAR}
+        </set>
+        WHERE
+           host_cd = #{vo.prev_host_cd, jdbcType=VARCHAR}
+
+    </update>
+
+    <update id="setNmsDataCodeUpdate" parameterType="map">
+        UPDATE
+          LINK_SYSTEM_DATA
+        <set>
+            host_cd = #{vo.host_cd, jdbcType=VARCHAR}
+        </set>
+        WHERE
+           host_cd = #{vo.prev_host_cd, jdbcType=VARCHAR}
+    </update>
+
+
+    <!--연계시스템(NMS) 데이터 목록 가져오기-->
+    <select id="getNmsDataList" parameterType="map" resultType="slm.www.vo.security.LinkVO">
+        SELECT
+        *
+        FROM
+        (
+        SELECT
+        ROWNUM as rnum,
+        T.*
+        FROM
+        (
+        SELECT
+        host_cd,
+        itm_cd,
+        col_dt,
+        col_dt as prev_col_dt,
+        avg_val,
+        host_cd as prev_host_cd,
+        itm_cd as prev_itm_cd
+
+        FROM
+        LINK_SYSTEM_DATA
+
+        <where>
+                AND host_cd = #{host_cd, jdbcType=VARCHAR}
+            <if test="vo.isSearch == true">
+                <if test="srcSDate != null and srcSDate != ''">
+                    AND col_dt &gt;= #{srcSDate}
+                </if>
+                <if test="srcEDate != null and srcEDate != ''">
+                    AND col_dt &lt;= #{srcEDate}
+                </if>
+                <if test="srcCode != null and srcCode != ''">
+                    AND ( host_cd LIKE '%${srcCode}%' OR itm_cd LIKE '%${srcCode}%' )
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+        ) T
+        ) A0
+
+        WHERE
+        A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+        ORDER BY
+        host_cd ASC, itm_cd ASC, col_dt ASC
+    </select>
+
+    <!--연계서비스(NMS) 데이터 UPDATE-->
+    <update id="setNmsDataUpdate" parameterType="map">
+        UPDATE
+           LINK_SYSTEM_DATA
+        <set>
+            itm_cd = #{vo.itm_cd, jdbcType=VARCHAR},
+            avg_val = #{vo.avg_val, jdbcType=VARCHAR},
+            host_cd = #{vo.host_cd, jdbcType=VARCHAR},
+        </set>
+        WHERE
+           col_dt = #{vo.prev_col_dt, jdbcType=VARCHAR} AND
+           host_cd = #{vo.prev_host_cd, jdbcType=VARCHAR} AND
+           itm_cd = #{vo.prev_itm_cd, jdbcType=VARCHAR}
+    </update>
+
+    <!--엑셀 내보내기를 위한 연계서비스(NMS) 데이터  목록-->
+    <select id="getNmsDataListReport" parameterType="map" resultType="map">
+        SELECT
+            host_cd,
+            itm_cd,
+            col_dt,
+            avg_val
+            FROM
+               LINK_SYSTEM_DATA
+            WHERE
+                    host_cd = #{host_cd, jdbcType=VARCHAR}
+               AND col_dt &gt;= #{srcSDate, jdbcType=VARCHAR}
+               AND col_dt &lt;= #{srcEDate, jdbcType=VARCHAR}
+
+
+    </select>
+
+    <!--연계시스템(NMS) 데이터 총 개수 가져오기-->
+    <select id="getNmsDataListCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+           LINK_SYSTEM_DATA
+        <where>
+            AND host_cd = #{host_cd, jdbcType=VARCHAR}
+            AND col_dt &gt;= #{srcSDate, jdbcType=VARCHAR}
+            AND col_dt &lt;= #{srcEDate, jdbcType=VARCHAR}
+
+            <if test="vo.isSearch == true">
+                <if test="srcCode != null and srcCode != ''">
+                    AND ( host_cd LIKE '%${srcCode}%' OR itm_cd LIKE '%${srcCode}%')
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+    </select>
+</mapper>

@@ -1,0 +1,31 @@
+# use glob syntax.
+syntax: glob
+*.ser
+*.class
+*~
+*.bak
+#*.off
+*.old
+*.log
+
+# idea conf file
+.idea
+*.iml
+
+# building
+target
+build
+null
+temp*
+test-output
+build.log
+gen
+out
+
+# other scm
+.svn
+.CVS
+.hg*
+
+# Make File
+Makefile

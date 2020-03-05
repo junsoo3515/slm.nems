@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.rsla.SlaReportDao">
+
+    <!-- SLA 보고서 목록 총 개수 가져오기 -->
+    <select id="getSLAReportListCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            SLM_SLA_REPORT T0
+
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="sDate != null and sDate != ''">
+                    AND T0.brief_dt &gt;= #{sDate}
+                </if>
+                <if test="eDate != null and eDate != ''">
+                    AND T0.brief_dt &lt;= #{eDate}
+                </if>
+
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!-- SLA 보고서 목록 가져오기 -->
+    <select id="getSLAReportList" parameterType="map" resultType="slm.www.vo.rsla.SlaReportVO">
+        SELECT
+            *
+        FROM
+        (
+            SELECT
+                ROWNUM as rnum,
+                T.*
+            FROM
+            (
+                SELECT
+                    T0.sla_seq,
+                    SUBSTR(T0.brief_dt, 1, 4) || '-' || SUBSTR(T0.brief_dt, 5, 2) || '-' || SUBSTR(T0.brief_dt, 7, 2) brief_dt,
+                    SUBSTR(T0.brief_dt, 1, 4) || '년' || SUBSTR(T0.brief_dt, 5, 2) || '월 보고서' sla_title,
+                    SUBSTR(T0.start_dt, 1, 4) || '-' || SUBSTR(T0.start_dt, 5, 2) || '-' || SUBSTR(T0.start_dt, 7, 2) start_dt,
+                    SUBSTR(T0.end_dt, 1, 4) || '-' || SUBSTR(T0.end_dt, 5, 2) || '-' || SUBSTR(T0.end_dt, 7, 2) end_dt,
+                    TRUNC(T0.reg_dts - TO_DATE('19700101', 'yyyymmdd')) * 60 * 60 * 24 - (9 * 60 * 60) + TO_CHAR(T0.reg_dts, 'sssss') reg_dts_ux
+                FROM
+                    SLM_SLA_REPORT T0
+
+                <where>
+                    <if test="vo.isSearch == true">
+                        <if test="sDate != null and sDate != ''">
+                            AND T0.brief_dt &gt;= #{sDate}
+                        </if>
+                        <if test="eDate != null and eDate != ''">
+                            AND T0.brief_dt &lt;= #{eDate}
+                        </if>
+                        <if test="vo.defWhere != null">
+                            AND ${vo.defWhere}
+                        </if>
+                    </if>
+                </where>
+
+                <trim prefix="ORDER BY" prefixOverrides=",">
+                    <choose>
+                        <when test="vo.sortID != null and vo.sortID != ''">
+                            , ${vo.sortID} ${vo.sortDesc}
+                        </when>
+                        <otherwise>
+                            , T0.brief_dt DESC
+                        </otherwise>
+                    </choose>
+                </trim>
+            ) T
+        ) A0
+
+        WHERE
+            A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+    </select>
+
+    <!-- 대역폭 사용률 가져오기 -->
+    <select id="getBandWidthList" parameterType="map" resultType="slm.www.vo.rsla.SlaReportBandWidthVO">
+        SELECT
+            (SELECT cd_nm FROM COM_CODE WHERE com_cd = T0.hig_cd AND jong_cd = 'BG' AND use_fl = 'Y' AND ROWNUM = 1) grp_nm,
+            T0.cd_nm bw_itm_nm,
+            T1.bw_seq,
+            T1.sla_seq,
+            NVL(T1.bw_itm_cd, T0.com_cd) bw_itm_cd,
+            T1.use_rate,
+            T1.reg_dts
+        FROM
+            COM_CODE T0
+        LEFT JOIN
+            SLM_SLA_BANDWIDTH T1
+        ON
+            T0.com_cd = T1.bw_itm_cd
+            AND T1.sla_seq = #{key, jdbcType=NUMERIC}
+        WHERE
+            T0.jong_cd = 'BI'
+            AND T0.use_fl = 'Y'
+        ORDER BY
+            T0.sort_seq
+    </select>
+
+    <!-- SLA 보고서 가져오기 -->
+    <select id="getSLAReportData" parameterType="map" resultType="slm.www.vo.rsla.SlaReportVO">
+        SELECT
+            T0.*,
+            T1.tot_time, T1.plan_cnt, T1.suc_cnt, T1.fail_cnt, T1.stop_cnt, T1.res_plan_cnt, T1.res_suc_cnt, T1.remark
+        FROM
+            SLM_SLA_REPORT T0
+        LEFT JOIN
+            SLM_SLA_BACKSUCRATE T1
+        ON
+            T0.sla_seq = T1.sla_seq
+        WHERE
+            T0.sla_seq = #{key, jdbcType=VARCHAR}
+            AND ROWNUM = 1
+    </select>
+
+    <!-- SLA 항목별 평가기준 가져오기 -->
+    <select id="getSLAReportEvalList" parameterType="map" resultType="slm.www.vo.rsla.SlaReportEvalVO">
+        SELECT
+            T0.rpt_cd,
+            (SELECT nm FROM SLM_REPORT_CODE WHERE rpt_cd = T0.hig_rpt_cd AND use_fl = 'Y' AND ROWNUM = 1) grp_nm,
+            T0.nm,
+            T2.*
+        FROM
+        (
+            SELECT
+                *
+            FROM
+                SLM_REPORT_CODE ST0
+            WHERE
+                ST0.rpt_depth = 4
+                AND ST0.use_fl = 'Y'
+            START WITH
+                ST0.rpt_cd = '0103000000'
+            CONNECT BY PRIOR
+                ST0.rpt_cd = ST0.hig_rpt_cd
+        ) T0, SLM_SLA_EVALMAP T1, SLM_SLA_EVAL T2
+        WHERE
+            T0.rpt_cd = T1.rpt_cd
+            AND T1.eval_cd = T2.eval_cd
+    </select>
+
+    <!-- SLA 항목별 평가결과 가져오기 -->
+    <select id="getSLAReportSummaryList" parameterType="map" resultType="slm.www.vo.rsla.SlaReportSummaryVO">
+        SELECT
+            *
+        FROM
+            SLM_SLA_REPORTSUM T0
+        WHERE
+            T0.sla_seq = #{key, jdbcType=NUMERIC}
+    </select>
+
+    <!-- SLA 보고서 insert -->
+    <insert id="setSLAReportInsert" parameterType="map">
+        INSERT INTO
+            SLM_SLA_REPORT(sla_seq, brief_dt, remove_dt, start_dt, end_dt, rpt_file, reg_dts)
+        VALUES (
+            #{vo.sla_seq, jdbcType=NUMERIC},
+            #{vo.brief_dt, jdbcType=VARCHAR},
+            #{vo.remove_dt, jdbcType=VARCHAR},
+            #{vo.start_dt, jdbcType=VARCHAR},
+            #{vo.end_dt, jdbcType=VARCHAR},
+            ( SELECT etc FROM COM_CODE WHERE jong_cd = 'OZ' AND com_cd = 'SLA' AND use_fl = 'Y' AND ROWNUM = 1 ),
+            SYSDATE
+        )
+    </insert>
+
+    <!-- SLA 보고서 Update -->
+    <update id="setSLAReportUpdate" parameterType="map">
+        UPDATE
+            SLM_SLA_REPORT
+
+        <set>
+            remove_dt = #{vo.remove_dt, jdbcType=VARCHAR},
+            start_dt = #{vo.start_dt, jdbcType=VARCHAR},
+            end_dt = #{vo.end_dt, jdbcType=VARCHAR},
+        </set>
+
+        WHERE
+            sla_seq = #{vo.sla_seq, jdbcType=NUMERIC}
+    </update>
+
+    <!-- SLA 보고서 요약 생성 Insert -->
+    <insert id="setSLAReportSummaryInsert" parameterType="map">
+        INSERT INTO
+            SLM_SLA_REPORTSUM (summ_seq, sla_seq, rpt_cd, mea_res, mea_point)
+        SELECT
+            #{seq, jdbcType=NUMERIC} + ROWNUM summ_seq,
+            #{key, jdbcType=NUMERIC} sla_seq,
+            T0.rpt_cd,
+            NULL,
+            NULL
+        FROM
+            SLM_REPORT_CODE T0
+        WHERE
+            T0.rpt_depth = '4'
+            AND T0.use_fl = 'Y'
+        START WITH
+            T0.rpt_cd = #{firstReportCD, jdbcType=VARCHAR}
+        CONNECT BY PRIOR
+            T0.rpt_cd = T0.hig_rpt_cd
+    </insert>
+
+    <!-- SLA 보고서 요약 결과 점수 Update -->
+    <update id="setSLAReportSummaryUpdate" parameterType="map">
+        UPDATE
+            SLM_SLA_REPORTSUM
+
+        <set>
+            mea_res = #{vo.mea_res, jdbcType=VARCHAR},
+            mea_point = #{vo.mea_point, jdbcType=FLOAT},
+            arith_expression_nm = #{vo.arith_expression_nm, jdbcType=VARCHAR},
+            mea_cont = #{vo.mea_cont, jdbcType=VARCHAR},
+        </set>
+
+        WHERE
+            summ_seq = #{vo.summ_seq, jdbcType=NUMERIC}
+            AND sla_seq = #{vo.sla_seq, jdbcType=NUMERIC}
+    </update>
+
+    <!-- SLA 백업 성공율 Insert/Update -->
+    <update id="setSLAReportBackupSuccessRateMergeAct" parameterType="map">
+        MERGE INTO SLM_SLA_BACKSUCRATE
+        USING DUAL
+        ON ( sla_seq = #{vo.sla_seq, jdbcType=NUMERIC} )
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                tot_time = #{vo.tot_time, jdbcType=NUMERIC},
+                plan_cnt = #{vo.plan_cnt, jdbcType=NUMERIC},
+                suc_cnt = #{vo.suc_cnt, jdbcType=NUMERIC},
+                fail_cnt = #{vo.fail_cnt, jdbcType=NUMERIC},
+                stop_cnt = #{vo.stop_cnt, jdbcType=NUMERIC},
+                res_plan_cnt = #{vo.res_plan_cnt, jdbcType=NUMERIC},
+                res_suc_cnt = #{vo.res_suc_cnt, jdbcType=NUMERIC},
+                remark = #{vo.remark, jdbcType=VARCHAR},
+                reg_dts = SYSDATE
+
+        WHEN NOT MATCHED THEN
+            INSERT (sla_seq, tot_time, plan_cnt, suc_cnt, fail_cnt, stop_cnt, res_plan_cnt, res_suc_cnt, remark, reg_dts)
+            VALUES (
+                #{vo.sla_seq, jdbcType=NUMERIC},
+                #{vo.tot_time, jdbcType=NUMERIC},
+                #{vo.plan_cnt, jdbcType=NUMERIC},
+                #{vo.suc_cnt, jdbcType=NUMERIC},
+                #{vo.fail_cnt, jdbcType=NUMERIC},
+                #{vo.stop_cnt, jdbcType=NUMERIC},
+                #{vo.res_plan_cnt, jdbcType=NUMERIC},
+                #{vo.res_suc_cnt, jdbcType=NUMERIC},
+                #{vo.remark, jdbcType=VARCHAR},
+                SYSDATE
+            )
+    </update>
+
+    <!-- SLA 대역폭 사용률 정보 Insert/Update -->
+    <update id="setSLAReportBandWidthMergeAct" parameterType="map">
+        MERGE INTO SLM_SLA_BANDWIDTH
+        USING DUAL
+        ON (
+            sla_seq = #{vo.sla_seq, jdbcType=NUMERIC}
+            AND bw_itm_cd = #{vo.bw_itm_cd, jdbcType=VARCHAR}
+        )
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                use_rate = #{vo.use_rate, jdbcType=VARCHAR},
+                reg_dts = SYSDATE
+
+        WHEN NOT MATCHED THEN
+        INSERT (bw_seq, sla_seq, bw_itm_cd, use_rate, reg_dts)
+        VALUES (
+            #{firstSeq, jdbcType=NUMERIC},
+            #{vo.sla_seq, jdbcType=NUMERIC},
+            #{vo.bw_itm_cd, jdbcType=VARCHAR},
+            #{vo.use_rate, jdbcType=VARCHAR},
+            SYSDATE
+        )
+    </update>
+
+    <!-- 예비품 현황 Insert/Update -->
+    <update id="setSLAReportEquipSpareDataMergeAct" parameterType="map">
+        MERGE INTO SLM_EQUIPSPARE_DATA m
+        USING (
+            SELECT
+                #{seq, jdbcType=NUMERIC} + ROWNUM spare_seq,
+                #{key, jdbcType=NUMERIC} sla_seq,
+                T2.eqp_cd, T0.qnt, T2.str_area, T2.remark
+            FROM
+            (
+                SELECT
+                    eqp_cd, SUM(qnt) AS qnt
+                FROM
+                    SLM_EQUIPSPARE_PARTS
+                WHERE
+                    reg_dt &lt;= #{maxDate, jdbcType=VARCHAR}
+                GROUP BY
+                    eqp_cd
+            ) T0, (
+                SELECT
+                    DISTINCT T0.eqp_cd
+                FROM
+                    SLM_DA_REPORTMAP T0, SLM_DA_REPORT T1
+                WHERE
+                    T0.da_seq = T1.da_seq
+                    AND T1.rpt_gubun_cd = 'DAY'
+                    AND T1.fin_fl = 'Y'
+                    AND T1.brief_dt IN
+
+                    <foreach collection="arrDate" item="item" index="index" separator="," open="(" close=")">
+                        '${item}'
+                    </foreach>
+
+            ) T1, SLM_EQUIPMENT T2
+            WHERE
+                T0.eqp_cd = T1.eqp_cd
+                AND T1.eqp_cd = T2.eqp_cd
+        ) e
+        ON (
+            m.spare_seq = e.spare_seq
+            AND m.sla_seq = e.sla_seq
+            AND m.eqp_cd = e.eqp_cd
+        )
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                qnt = e.qnt,
+                str_area = e.str_area,
+                remark = e.remark
+
+        WHEN NOT MATCHED THEN
+            INSERT (spare_seq, sla_seq, eqp_cd, qnt, str_area, remark)
+            VALUES (
+                e.spare_seq, e.sla_seq, e.eqp_cd, e.qnt, e.str_area, e.remark
+            )
+    </update>
+
+    <!-- SLA 보고서 Delete -->
+    <delete id="setSLAReportDelete" parameterType="map">
+        DELETE FROM
+            SLM_SLA_REPORT
+        WHERE
+            sla_seq = #{key, jdbcType=NUMERIC}
+    </delete>
+
+    <!-- SLA 보고서 요약 Delete -->
+    <delete id="setSLAReportSumDelete" parameterType="map">
+        DELETE FROM
+            SLM_SLA_REPORTSUM
+        WHERE
+            sla_seq = #{key, jdbcType=NUMERIC}
+    </delete>
+
+    <!-- 예비품 현황 Delete -->
+    <delete id="setSLAReportEquipSpareDataDelete" parameterType="map">
+        DELETE FROM
+            SLM_EQUIPSPARE_DATA
+        WHERE
+            sla_seq = #{key, jdbcType=NUMERIC}
+    </delete>
+
+    <!-- 백업 성공률 정보 Delete -->
+    <delete id="setSLAReportBackupSuccessRateDelete" parameterType="map">
+        DELETE FROM
+            SLM_SLA_BACKSUCRATE
+        WHERE
+            sla_seq = #{key, jdbcType=NUMERIC}
+    </delete>
+
+    <!-- 대역폭 사용률 정보 Delete -->
+    <delete id="setSLAReportBandWidthDelete" parameterType="map">
+        DELETE FROM
+            SLM_SLA_BANDWIDTH
+        WHERE
+            sla_seq = #{key, jdbcType=NUMERIC}
+    </delete>
+</mapper>

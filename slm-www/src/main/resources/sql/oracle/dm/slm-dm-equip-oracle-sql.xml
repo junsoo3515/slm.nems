@@ -1,0 +1,425 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.dm.EquipDao">
+
+    <!-- 전체 장비 목록 가져오기 -->
+    <select id="getEquipAllList" parameterType="map" resultType="slm.www.vo.dm.EquipVO">
+        SELECT
+            /*+INDEX_DESC(T0 SLM_EQUIPMENT_PK)*/
+            eqp_cd,
+            eqp_grp_cd,
+            eqp_nm,
+            eqp_serial,
+            NVL((SELECT 1 FROM SLM_EQUIPGRP_DATA WHERE eqp_cd = T0.eqp_cd AND ROWNUM = 1), 0) data_cnt
+        FROM
+            SLM_EQUIPMENT T0
+        WHERE
+            T0.eqp_cd > ' '
+            AND T0.use_fl = 'Y'
+    </select>
+
+    <!-- 장비 총 개수 가져오기 -->
+    <select id="getEquipListCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            SLM_EQUIPMENT T0
+
+        <where>
+            AND T0.use_fl = 'Y'
+            <if test="vo.isSearch == true">
+                <if test="srcGrp != null and srcGrp != ''">
+                    AND T0.eqp_grp_cd = #{srcGrp}
+                </if>
+                <if test="srcNm != null and srcNm != ''">
+                    AND T0.eqp_nm LIKE '%${srcNm}%'
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!-- 장비 목록 가져오기 -->
+    <select id="getEquipList" parameterType="map" resultType="slm.www.vo.dm.EquipVO">
+        SELECT
+            *
+        FROM
+        (
+            SELECT
+                ROWNUM as rnum,
+                T.*
+            FROM
+            (
+                SELECT
+                    T0.eqp_cd,
+                    T0.eqp_grp_cd,
+                    T0.eqp_nm,
+                    T0.eqp_serial
+                FROM
+                    SLM_EQUIPMENT T0
+
+                <where>
+                    AND T0.use_fl = 'Y'
+                    <if test="vo.isSearch == true">
+                        <if test="srcGrp != null and srcGrp != ''">
+                            AND T0.eqp_grp_cd = #{srcGrp}
+                        </if>
+                        <if test="srcNm != null and srcNm != ''">
+                            AND T0.eqp_nm LIKE '%${srcNm}%'
+                        </if>
+                        <if test="vo.defWhere != null">
+                            AND ${vo.defWhere}
+                        </if>
+                    </if>
+                </where>
+
+                <trim prefix="ORDER BY" prefixOverrides=",">
+                    <choose>
+                        <when test="vo.sortID != null and vo.sortID != ''">
+                        , ${vo.sortID} ${vo.sortDesc}
+                        </when>
+                        <otherwise>
+                        , T0.eqp_cd DESC
+                        </otherwise>
+                    </choose>
+                </trim>
+            ) T
+        ) A0
+
+        WHERE
+            A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+    </select>
+
+    <!-- 장비 상세정보 가져오기 -->
+    <select id="getEquipData" parameterType="map" resultType="slm.www.vo.dm.EquipVO">
+        SELECT
+            *
+        FROM
+            SLM_EQUIPMENT
+        WHERE
+            eqp_cd = #{key, jdbcType=VARCHAR}
+            AND ROWNUM = 1
+    </select>
+
+    <!-- 장비 목록 가져오기(장비세부목록 & 엑셀 내보내기) -->
+    <select id="getEquipListExport" parameterType="map" resultType="map">
+        SELECT
+            *
+        FROM
+        (
+            SELECT
+                /*+LEADING(T0 T1) USE_NL(T0) INDEX_DESC(T1 SLM_EQUIPMENT_PK)*/ T0.*
+            FROM
+                SLM_EQUIPGRP_DATA T0, SLM_EQUIPMENT T1
+            WHERE
+                T0.eqp_cd = T1.eqp_cd
+                AND T1.eqp_grp_cd = #{grpCD, jdbcType=VARCHAR}
+
+                <foreach collection="arrEquipCD" item="item" index="index" separator="," open="AND T0.eqp_cd IN (" close=")">
+                    #{item}
+                </foreach>
+
+                AND T1.use_fl = 'Y'
+        )
+        PIVOT
+        (
+            MIN(input_val)
+            FOR topic_cd IN
+            <foreach collection="arrTopicKey" item="item" index="index" separator="," open="(" close=")">
+                '${item}' AS ${colPrefix}${item}
+            </foreach>
+        )
+        ORDER BY
+            eqp_cd DESC
+    </select>
+
+    <!-- 장비 목록 가져오기(장비세부정보) -->
+    <select id="getEquipListReport" parameterType="map" resultType="map">
+        SELECT
+            *
+        FROM
+        (
+            SELECT
+                ROWNUM as rnum,
+                T.*
+            FROM
+            (
+                SELECT
+                    *
+                FROM
+                (
+                    SELECT
+                        /*+LEADING(T0 T1) USE_NL(T0) INDEX_DESC(T1 SLM_EQUIPMENT_PK)*/ T0.eqp_cd, T0.topic_cd, T0.da_seq, T0.rpt_cd, T0.inp_val
+                    FROM
+                        SLM_EQUIPMAIN_DATA T0, SLM_EQUIPMENT T1
+                    WHERE
+                        T0.eqp_cd = T1.eqp_cd
+                        AND T0.da_seq = #{daSeq, jdbcType=NUMERIC}
+                        AND T0.rpt_cd = #{rptCD, jdbcType=VARCHAR}
+                        AND T1.use_fl = 'Y'
+                )
+                PIVOT
+                (
+                    MIN(inp_val)
+                    FOR topic_cd IN
+                    <foreach collection="arrTopicKey" item="item" index="index" separator="," open="(" close=")">
+                        '${item}' AS ${colPrefix}${item}
+                    </foreach>
+                )
+                ORDER BY
+                    eqp_cd
+            ) T
+        ) A0
+
+        <if test="vo != null">
+            WHERE
+                A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+        </if>
+    </select>
+
+    <!-- 장비 기본항목 데이터 가져오기 -->
+    <select id="getEquipGrpDataList" parameterType="map" resultType="slm.www.vo.dm.EquipGrpVO">
+        SELECT
+            T0.topic_cd, T0.topic_nm,
+            T1.eqp_cd, T1.input_val
+        FROM
+        (
+            SELECT
+                /*+INDEX(ST SLM_EQUIPGRP_TOPIC_PK) */ topic_cd, topic_nm, pos
+            FROM
+                SLM_EQUIPGRP_TOPIC ST
+            WHERE
+                ST.eqp_grp_cd = #{grpCd, jdbcType=VARCHAR}
+                AND ST.use_fl = 'Y'
+                AND ST.topic_cd > ' '
+        ) T0
+        LEFT JOIN
+            SLM_EQUIPGRP_DATA T1
+        ON
+            T0.topic_cd = T1.topic_cd
+            AND T1.eqp_cd = #{eqpCd, jdbcType=VARCHAR}
+        ORDER BY
+            T0.pos
+    </select>
+
+    <!-- 장비 신규 코드 생성 -->
+    <select id="getEquipCreateCd" parameterType="map" resultType="string">
+        SELECT
+            TO_CHAR(systimestamp,'yyyymmddhh24missff3')
+        FROM
+            DUAL
+    </select>
+
+    <!--장비 기본정보 저장 insert-->
+    <insert id="setEquipInsert" parameterType="map">
+        INSERT INTO
+            SLM_EQUIPMENT(eqp_cd, eqp_grp_cd, eqp_nm, eqp_serial, use_fl, str_area, remark, reg_mem_id, reg_dts, mod_dts)
+        VALUES(
+            #{vo.eqp_cd, jdbcType=VARCHAR},
+            #{vo.eqp_grp_cd, jdbcType=VARCHAR},
+            #{vo.eqp_nm, jdbcType=VARCHAR},
+            #{vo.eqp_serial, jdbcType=VARCHAR},
+            'Y',
+            #{vo.str_area, jdbcType=VARCHAR},
+            #{vo.remark, jdbcType=VARCHAR},
+            #{vo.reg_mem_id, jdbcType=VARCHAR},
+            SYSDATE,
+            SYSDATE
+        )
+    </insert>
+
+    <!--장비 기본정보 저장 update-->
+    <update id="setEquipUpdate" parameterType="map">
+        UPDATE
+            SLM_EQUIPMENT
+
+        <set>
+            eqp_nm = #{vo.eqp_nm, jdbcType=VARCHAR},
+            eqp_serial = #{vo.eqp_serial, jdbcType=VARCHAR},
+            str_area = #{vo.str_area, jdbcType=VARCHAR},
+            remark = #{vo.remark, jdbcType=VARCHAR},
+            mod_dts = SYSDATE
+        </set>
+
+        WHERE eqp_cd = #{vo.eqp_cd, jdbcType=VARCHAR}
+    </update>
+
+    <!-- 장비 기본정보 삭제 Update -->
+    <update id="setEquipDelete" parameterType="map">
+        UPDATE
+            SLM_EQUIPMENT
+
+        <set>
+            use_fl = 'N',
+            mod_dts = SYSDATE
+        </set>
+
+        WHERE eqp_cd = #{key, jdbcType=VARCHAR}
+    </update>
+
+    <!-- 장비유형별 기본항목 데이터 존재 유무 판단 -->
+    <select id="getEquipGrpDataCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            SLM_EQUIPGRP_DATA
+        WHERE
+            eqp_cd = #{key, jdbcType=VARCHAR}
+    </select>
+
+    <!-- 장비유형별 기본항목 데이터 Insert -->
+    <insert id="setEquipGrpDataInsert" parameterType="map">
+        INSERT INTO
+            SLM_EQUIPGRP_DATA (eqp_cd, topic_cd, input_val)
+        VALUES (
+            #{key, jdbcType=VARCHAR},
+            #{vo.topic_cd, jdbcType=VARCHAR},
+            #{vo.input_val, jdbcType=VARCHAR}
+        )
+    </insert>
+
+    <!-- 장비유형별 기본항목 데이터 Insert(엑셀 일괄 등록에서 사용) -->
+    <insert id="setEquipGrpDataBatchInsert" parameterType="map">
+        INSERT ALL
+        <foreach collection="listData" item="item" index="index" >
+            INTO SLM_EQUIPGRP_DATA (eqp_cd, topic_cd, input_val)
+            VALUES (
+            #{key, jdbcType=VARCHAR},
+            #{item.topic_cd, jdbcType=VARCHAR},
+            #{item.input_val, jdbcType=VARCHAR}
+            )
+        </foreach>
+        SELECT * FROM DUAL
+    </insert>
+
+    <!-- 장비유형별 기본항목 데이터 Update -->
+    <update id="setEquipGrpDataUpdate" parameterType="map">
+        UPDATE
+            SLM_EQUIPGRP_DATA
+
+        <set>
+            input_val = #{vo.input_val, jdbcType=VARCHAR},
+        </set>
+
+        WHERE
+            topic_cd = #{vo.topic_cd, jdbcType=VARCHAR}
+            AND eqp_cd = #{key, jdbcType=VARCHAR}
+    </update>
+
+    <!-- 장비유형별 기본항목 데이터 Delete -->
+    <delete id="setEquipGrpDataDelete" parameterType="map">
+        DELETE FROM
+            SLM_EQUIPGRP_DATA
+        WHERE
+            eqp_cd = #{key, jdbcType=VARCHAR}
+    </delete>
+
+    <!-- 예비품 현황 총 개수 가져오기 -->
+    <select id="getEquipSparePartListCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            SLM_EQUIPSPARE_PARTS T0
+
+        <where>
+            AND T0.eqp_cd = #{srcEquipCd, jdbcType=VARCHAR}
+
+            <if test="vo.isSearch == true">
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!-- 예비품 현황 목록 가져오기 -->
+    <select id="getEquipSparePartList" parameterType="map" resultType="slm.www.vo.dm.SparePartVO">
+        SELECT
+            *
+        FROM
+        (
+            SELECT
+                ROWNUM as rnum,
+                T.*
+            FROM
+            (
+                SELECT
+                    T0.spare_seq,
+                    T0.eqp_cd,
+                    SUBSTR(T0.reg_dt, 1, 4) || '-' || SUBSTR(T0.reg_dt, 5, 2) || '-' || SUBSTR(T0.reg_dt, 7, 2) reg_dt,
+                    T0.qnt
+                FROM
+                    SLM_EQUIPSPARE_PARTS T0
+
+                <where>
+                    AND T0.eqp_cd = #{srcEquipCd, jdbcType=VARCHAR}
+
+                    <if test="vo.isSearch == true">
+                        <if test="vo.defWhere != null">
+                            AND ${vo.defWhere}
+                        </if>
+                    </if>
+                </where>
+
+                <trim prefix="ORDER BY" prefixOverrides=",">
+                    <choose>
+                        <when test="vo.sortID != null and vo.sortID != ''">
+                            , ${vo.sortID} ${vo.sortDesc}
+                        </when>
+                        <otherwise>
+                            , T0.spare_seq DESC
+                        </otherwise>
+                    </choose>
+                </trim>
+            ) T
+        ) A0
+
+        WHERE
+            A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+    </select>
+
+    <!-- 예비품 현황 insert -->
+    <insert id="setEquipSparePartInsert" parameterType="map">
+        INSERT INTO
+            SLM_EQUIPSPARE_PARTS(spare_seq, eqp_cd, reg_dt, qnt, reg_dts)
+        VALUES (
+            ( SELECT NVL(MAX(spare_seq), 0) + 1 FROM SLM_EQUIPSPARE_PARTS ),
+            #{vo.eqp_cd, jdbcType=VARCHAR},
+            #{vo.reg_dt, jdbcType=VARCHAR},
+            #{vo.qnt, jdbcType=INTEGER},
+            SYSDATE
+        )
+    </insert>
+
+    <!-- SLM_EQUIPGRP_TOPIC List 가져오기 -->
+    <select id="getEquipGrpTopicList" parameterType="map" resultType="map">
+        SELECT
+            T0.eqp_grp_cd AS grpcd,
+            T0.topic_cd AS id,
+            T0.topic_nm AS val
+        FROM
+            SLM_EQUIPGRP_TOPIC T0
+
+        <where>
+            AND T0.use_fl = 'Y'
+            <if test="grpCD != null and grpCD !=''">
+                AND T0.eqp_grp_cd = #{grpCD, jdbcType=VARCHAR}
+            </if>
+        </where>
+
+        <trim prefix="ORDER BY" prefixOverrides=",">
+            <choose>
+                <when test="grpCD != null and grpCD != ''">
+                    , T0.eqp_grp_cd, T0.pos
+                </when>
+                <otherwise>
+                    , T0.pos
+                </otherwise>
+            </choose>
+        </trim>
+    </select>
+</mapper>

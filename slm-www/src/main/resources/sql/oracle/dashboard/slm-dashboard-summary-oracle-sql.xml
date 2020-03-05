@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.dashboard.SummaryDao">
+
+
+
+
+    <!-- 점검요약정보 보고서 유형 별 항목 현황 가져오기 -->
+    <select id="getDashDailySummaryInfo" parameterType="map" resultType="slm.www.vo.dashboard.DashBoardDailyVO">
+       SELECT
+            DA_SEQ,
+            ITM_ALL_CNT,
+            (ITM_ALL_CNT - ITM_ABNORMAL_CNT) AS ITM_NORMAL_CNT,
+            HIG_RPT_CD
+       FROM
+       (
+           select
+                DA_SEQ AS DA_SEQ,
+                SUM(ITM_ALL_CNT) AS ITM_ALL_CNT,
+                SUM(ITM_ABNORMAL_CNT) AS ITM_ABNORMAL_CNT,
+                HIG_RPT_CD
+            FROM
+                (
+                select
+                    T0.DA_SEQ
+                    ,T0.ITM_ALL_CNT
+                    ,T0.ITM_ABNORMAL_CNT
+                    ,T1.HIG_RPT_CD
+                 from
+                    SLM_DA_REPORTSUM T0
+                LEFT JOIN
+                    SLM_REPORT_CODE T1
+                ON  T0.RPT_CD  = T1.RPT_CD
+                WHERE
+                     T0.DA_SEQ IN (select DA_SEQ from SLM_DA_REPORT where RPT_GUBUN_CD='DAY' AND BRIEF_DT between #{sDate} and #{eDate})
+
+                )
+            GROUP BY DA_SEQ,HIG_RPT_CD
+
+            )
+
+        ORDER BY DA_SEQ DESC,HIG_RPT_CD
+    </select>
+    <!-- 점검요약정보 보고서 유형 별 항목 현황 가져오기 -->
+    <select id="getDashDailyReportInfo" parameterType="map" resultType="slm.www.vo.dashboard.DashBoardDailyVO">
+        select
+            DA_SEQ,
+            ( SUBSTR(BRIEF_DT,1,4)||'.'||SUBSTR(BRIEF_DT,5,2)||'.'||SUBSTR(BRIEF_DT,7,2) ) as BRIEF_DT
+        from
+            SLM_DA_REPORT
+        where
+            RPT_GUBUN_CD='DAY' AND
+            BRIEF_DT between #{sDate} and #{eDate}
+        ORDER BY brief_dt ASC
+    </select>
+    <!-- 점검요약정보 보고서 유형 별 항목 현황 가져오기 -->
+    <select id="getDashSlaSummaryInfo" parameterType="map" resultType="slm.www.vo.dashboard.DashBoardSlaVO">
+        select
+            SLA_SEQ AS SLA_SEQ,
+            SUM(MEA_POINT) AS MEA_POINT,
+            HIG_RPT_CD
+        FROM
+            (
+            select
+                T0.SLA_SEQ
+                ,T0.MEA_POINT
+                ,T1.HIG_RPT_CD
+             from
+                SLM_SLA_REPORTSUM T0
+            LEFT JOIN
+                SLM_REPORT_CODE T1
+            ON  T0.RPT_CD  = T1.RPT_CD
+            WHERE
+                 T0.SLA_SEQ IN (select SLA_SEQ from SLM_SLA_REPORT where BRIEF_DT between #{sDate} and #{eDate})
+
+            )
+        GROUP BY SLA_SEQ,HIG_RPT_CD
+        ORDER BY SLA_SEQ DESC,HIG_RPT_CD
+    </select>
+    <!-- 점검요약정보 보고서 유형 별 항목 현황 가져오기 -->
+    <select id="getDashSlaReportInfo" parameterType="map" resultType="slm.www.vo.dashboard.DashBoardSlaVO">
+        select
+            sla_seq,
+            ( SUBSTR(BRIEF_DT,1,4)||'.'||SUBSTR(BRIEF_DT,5,2)||'.'||SUBSTR(BRIEF_DT,7,2) ) as BRIEF_DT
+        from
+            SLM_SLA_REPORT
+        where
+            BRIEF_DT between #{sDate} and #{eDate}
+        ORDER BY brief_dt ASC
+    </select>
+
+    <!-- 지수 가져오기 -->
+    <!--TRUNC((((SUM(A.cnt_all) - SUM(A.cnt_err)) / SUM(A.cnt_all)) * 10), 1) as operateIndex,-->
+    <select id="getOpIndexData" resultType="slm.www.vo.dashboard.DashBoardSlaVO">
+        SELECT
+            TRUNC((((SUM(A.cnt_all) - SUM(A.cnt_err)) / SUM(A.cnt_all)) * 100), 1) as operateIndex,
+            B.brief_dt as brief_dt
+        FROM
+            SLM_DA_REPORTSUM A, SLM_DA_REPORT B
+        WHERE
+            B.brief_dt = TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+        AND
+            A.da_seq = B.da_seq
+        GROUP BY B.brief_dt
+    </select>
+</mapper>

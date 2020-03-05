@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.onepage.MyInfoDao">
+
+    <!--개인정보 update-->
+    <update id="setMyInfoUpdate" parameterType="slm.www.vo.security.UserVO">
+        UPDATE
+            COM_MEM_INFO
+        <set>
+            nm = #{vo.nm},
+            <if test="vo.pwd != null and vo.pwd != ''"> pwd = #{vo.pwd}, </if>
+            email = #{vo.email},
+            tel_hp = #{vo.tel_hp},
+            tel_office = #{vo.tel_office},
+            use_fl = #{vo.use_fl},
+            etc = #{vo.etc},
+            mod_dts = SYSDATE
+        </set>
+
+        WHERE mem_id = #{vo.mem_id}
+    </update>
+
+
+</mapper>

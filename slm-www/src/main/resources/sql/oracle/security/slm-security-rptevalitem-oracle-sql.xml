@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.security.RptEvalItemDao">
+
+    <!--그룹관리 항목 가져오기-->
+    <select id="getGroupNmList" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            grp_cd AS id,
+            grp_nm AS val
+        FROM
+            SLM_EQUIP_EVALGROUP
+        ORDER BY
+            grp_nm
+    </select>
+
+    <!--보고서 항목 가져오기-->
+    <select id="getReportNmList" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            rpt_cd AS id,
+            nm AS val
+        FROM
+            SLM_REPORT_CODE
+        ORDER BY
+            nm
+    </select>
+
+    <!--그룹관리 총 개수 가져오기-->
+    <select id="getEvalGroupListCnt" parameterType="map" resultType="int">
+        SELECT
+        COUNT(1)
+        FROM
+        SLM_EQUIP_EVALGROUP
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcWord != null and srcWord != ''">
+                    AND (grp_cd LIKE '%${srcWord}%' OR grp_nm LIKE '%${srcWord}%')
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!--그룹관리 목록 가져오기-->
+    <select id="getEvalGroupList" parameterType="map" resultType="slm.www.vo.security.RptEvalItemVO">
+        SELECT
+        *
+        FROM
+        (
+        SELECT
+        ROWNUM as rnum,
+        T.*
+        FROM
+        (
+        SELECT
+        *
+        FROM
+        SLM_EQUIP_EVALGROUP
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcWord != null and srcWord != ''">
+                    AND ( grp_cd LIKE '%${srcWord}%' OR grp_nm LIKE '%${srcWord}%')
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+        ) T
+        ) A0
+        WHERE
+        A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+        ORDER BY
+            grp_cd ASC
+    </select>
+
+    <!--그룹관리 등록하기-->
+    <insert id="setEvalGroupAct" parameterType="map">
+        INSERT INTO SLM_EQUIP_EVALGROUP (grp_cd, grp_nm ) VALUES (#{vo.grp_cd, jdbcType=VARCHAR}, #{vo.grp_nm, jdbcType=VARCHAR})
+    </insert>
+
+    <!--그룹관리 수정하기-->
+    <update id="setEvalGroupUpdate" parameterType="map">
+        UPDATE
+            SLM_EQUIP_EVALGROUP
+        SET
+          grp_nm = #{vo.grp_nm, jdbcType=VARCHAR}
+          WHERE
+              grp_cd = #{vo.grp_cd, jdbcType=VARCHAR}
+    </update>
+
+    <!--그룹관리 삭제하기-->
+    <delete id="setEvalGroupDel" parameterType="map">
+        DELETE
+          FROM    SLM_EQUIP_EVALGROUP
+              WHERE
+                  grp_cd = #{vo.grp_cd, jdbcType=VARCHAR}
+
+    </delete>
+    <delete id="setEvalGroupMapDel" parameterType="map">
+        DELETE
+          FROM    SLM_EQUIP_EVALGROUPMAP
+              WHERE
+                  grp_cd = #{vo.grp_cd, jdbcType=VARCHAR}
+
+    </delete>
+    <delete id="setEvalGroupItemDel" parameterType="map">
+        DELETE
+        FROM SLM_EQUIP_EVALITEM
+        WHERE grp_cd = #{vo.grp_cd, jdbcType=VARCHAR}
+    </delete>
+
+
+    <!--평가기준 상세정보 가져오기-->
+    <select id="getSlaEvalData" parameterType="map" resultType="slm.www.vo.security.SlaItemVO">
+        SELECT
+            *
+            FROM
+                SLM_SLA_EVAL
+                WHERE
+                  eval_cd = #{eval_cd}
+    </select>
+
+    <!--평가기준 등록하기-->
+    <insert id="setSlaEvalAct" parameterType="slm.www.vo.security.SlaItemVO">
+        INSERT INTO SLM_SLA_EVAL (eval_cd, item_nm, weight, target, mea_method, mea_tool, mea_period, arith_expression_nm, arith_expression,
+        mea_cont, max_lev, min_lev, score_exce_nm, score_good_nm, score_normal_nm, score_insuf_nm, score_bad_nm,
+        score_exce, score_good, score_normal, score_insuf, score_bad, point_exce, point_good, point_normal,point_insuf,
+        point_bad, mea_res_unit)
+        VALUES(#{vo.eval_cd}, #{vo.item_nm, jdbcType=VARCHAR }, #{vo.weight, jdbcType=INTEGER}, #{vo.target, jdbcType=VARCHAR}, #{vo.mea_method, jdbcType=VARCHAR}, #{vo.mea_tool, jdbcType=VARCHAR}, #{vo.mea_period, jdbcType=VARCHAR}, #{vo.arith_expression_nm, jdbcType=VARCHAR}, #{vo.arith_expression, jdbcType=VARCHAR},
+        #{vo.mea_cont, jdbcType=VARCHAR}, #{vo.max_lev, jdbcType=VARCHAR}, #{vo.min_lev, jdbcType=VARCHAR}, #{vo.score_exce_nm, jdbcType=VARCHAR}, #{vo.score_good_nm, jdbcType=VARCHAR}, #{vo.score_normal_nm, jdbcType=VARCHAR}, #{vo.score_insuf_nm, jdbcType=VARCHAR}, #{vo.score_bad_nm, jdbcType=VARCHAR},
+        #{vo.score_exce, jdbcType=VARCHAR}, #{vo.score_good, jdbcType=VARCHAR}, #{vo.score_normal, jdbcType=VARCHAR}, #{vo.score_insuf, jdbcType=VARCHAR}, #{vo.score_bad, jdbcType=VARCHAR}, #{vo.point_exce, jdbcType=FLOAT}, #{vo.point_good, jdbcType=FLOAT}, #{vo.point_normal, jdbcType=FLOAT},#{vo.point_insuf, jdbcType=FLOAT},
+        #{vo.point_bad, jdbcType=FLOAT}, #{vo.mea_res_unit, jdbcType=VARCHAR})
+    </insert>
+
+    <!--평가기준 목록 개수 가져오기-->
+    <select id="getEvalItemListCnt" parameterType="map" resultType="int">
+        SELECT
+        COUNT(1)
+        FROM
+            SLM_EQUIP_EVALGROUP B, (SELECT grp_cd  FROM SLM_EQUIP_EVALITEM WHERE grp_cd = #{grp_cd, jdbcType=VARCHAR}) A
+        WHERE
+            B.grp_cd = A.grp_cd
+    </select>
+
+    <!--평가기준 목록 가져오기-->
+    <select id="getEvalItemList" parameterType="map" resultType="slm.www.vo.security.RptEvalItemVO">
+        SELECT
+            B.grp_cd as grp_cd,
+            B.grp_nm as grp_nm,
+            A.basis_nm as basis_nm,
+            A.chk_fl as chk_fl,
+            A.itm_cd as itm_cd,
+            A.itm_cd as prev_itm_cd,
+            A.sort_seq as sort_seq
+
+
+        FROM
+            SLM_EQUIP_EVALGROUP B, (
+                                      SELECT grp_cd,
+                                               basis_nm,
+                                               chk_fl,
+                                               itm_cd,
+                                               sort_seq
+                                      FROM
+                                        SLM_EQUIP_EVALITEM
+                                      WHERE
+                                      grp_cd = #{grp_cd, jdbcType=VARCHAR}) A
+        WHERE
+            B.grp_cd = A.grp_cd
+        ORDER BY
+            sort_seq ASC
+    </select>
+
+    <!--평가기준 상세정보 가져오기-->
+    <select id="getEvalItemInfoData" parameterType="map" resultType="slm.www.vo.security.RptEvalItemVO">
+        SELECT
+            *
+            FROM
+              SLM_EQUIP_EVALITEM
+            WHERE
+              grp_cd = #{vo.grp_cd, jdbcType=VARCHAR}
+              AND
+              itm_cd = #{vo.itm_cd, jdbcType=VARCHAR}
+    </select>
+
+    <!--평가기준 등록하기-->
+    <insert id="setEvalItemInfoAct" parameterType="map">
+        INSERT INTO SLM_EQUIP_EVALITEM (itm_cd, grp_cd, basis_nm, eng_nm, cont, chk_fl, good, warning, wrong, good_expr, warning_expr, wrong_expr)
+        VALUES (#{vo.itm_cd, jdbcType=VARCHAR}, #{vo.grp_nm, jdbcType=VARCHAR}, #{vo.basis_nm, jdbcType=VARCHAR}, #{vo.eng_nm, jdbcType=VARCHAR}, #{vo.cont, jdbcType=VARCHAR}, #{vo.chk_fl, jdbcType=VARCHAR}, #{vo.good, jdbcType=VARCHAR}, #{vo.warning, jdbcType=VARCHAR}, #{vo.wrong, jdbcType=VARCHAR}, #{vo.good_expr, jdbcType=VARCHAR}, #{vo.warning_expr, jdbcType=VARCHAR}, #{vo.wrong_expr, jdbcType=VARCHAR})
+    </insert>
+
+    <!--평가기준 수정하기-->
+    <update id="setEvalItemInfoUpdate" parameterType="map">
+        UPDATE
+            SLM_EQUIP_EVALITEM
+            SET
+              itm_cd = #{vo.itm_cd, jdbcType=VARCHAR},
+              grp_cd = grp_cd,
+              basis_nm = #{vo.basis_nm, jdbcType=VARCHAR},
+              eng_nm = #{vo.eng_nm, jdbcType=VARCHAR},
+              cont = #{vo.cont, jdbcType=VARCHAR},
+              chk_fl = #{vo.chk_fl, jdbcType=VARCHAR},
+              good = #{vo.good, jdbcType=VARCHAR},
+              warning = #{vo.warning, jdbcType=VARCHAR},
+              wrong = #{vo.wrong, jdbcType=VARCHAR},
+              good_expr = #{vo.good_expr, jdbcType=VARCHAR},
+              warning_expr = #{vo.warning_expr, jdbcType=VARCHAR},
+              wrong_expr = #{vo.wrong_expr, jdbcType=VARCHAR}
+          WHERE
+            itm_cd = #{vo.prev_itm_cd, jdbcType=VARCHAR}
+            AND
+            grp_cd = grp_cd
+    </update>
+
+    <!--평가기준 삭제하기-->
+    <delete id="setEvalItemDel" parameterType="map">
+        DELETE
+        FROM SLM_EQUIP_EVALITEM
+        WHERE itm_cd = #{vo.itm_cd, jdbcType=VARCHAR} AND grp_cd = #{vo.grp_cd, jdbcType=VARCHAR}
+    </delete>
+
+    <!--보고서 연계 총 개수 가져오기-->
+    <select id="getReportMapListCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            SLM_REPORT_CODE A , (SELECT
+                                      rpt_cd
+                                 FROM
+                                      SLM_EQUIP_EVALGROUPMAP A
+                                 WHERE
+                                        A.grp_cd = #{grp_cd, jdbcType=VARCHAR}) B, SLM_EQUIP_EVALGROUP C
+        WHERE
+            A.rpt_cd = B.rpt_cd
+        AND
+            C.grp_cd = #{grp_cd, jdbcType=VARCHAR}
+    </select>
+
+    <!--보고서 연계 목록 가져오기-->
+    <select id="getReportMapList" parameterType="map" resultType="slm.www.vo.security.RptEvalItemVO">
+        SELECT
+            C.nm as nm,
+            B.grp_nm as grp_nm,
+            C.rpt_cd as rpt_cd,
+            B.grp_cd as grp_cd
+        FROM
+            SLM_REPORT_CODE C , (SELECT
+                                      rpt_cd
+                                 FROM
+                                      SLM_EQUIP_EVALGROUPMAP
+                                 WHERE
+                                        grp_cd = #{grp_cd, jdbcType=VARCHAR}) A, SLM_EQUIP_EVALGROUP B
+        WHERE
+            C.rpt_cd = A.rpt_cd
+        AND
+            B.grp_cd = #{grp_cd, jdbcType=VARCHAR}
+        ORDER BY
+            rpt_cd ASC
+    </select>
+
+    <!--보고서 연계 등록하기-->
+    <insert id="setReportMapAct" parameterType="map">
+        INSERT INTO SLM_EQUIP_EVALGROUPMAP (rpt_cd, grp_cd) VALUES(#{vo.nm, jdbcType=VARCHAR},#{vo.grp_nm, jdbcType=VARCHAR} )
+    </insert>
+
+    <!--보고서 연계 수정하기-->
+    <update id="setReportMapUpdate" parameterType="map">
+        UPDATE
+          SLM_EQUIP_EVALGROUPMAP
+        SET
+           grp_cd = #{vo.grp_nm, jdbcType=VARCHAR},
+           rpt_cd = #{vo.nm, jdbcType=VARCHAR}
+        WHERE
+           grp_cd = #{vo.prev_grp_nm, jdbcType=VARCHAR}
+           AND
+            rpt_cd = #{vo.prev_nm, jdbcType=VARCHAR}
+    </update>
+
+    <!--보고서 연게 삭제하기-->
+    <delete id="setReportMapDel" parameterType="map">
+        DELETE
+        FROM
+          SLM_EQUIP_EVALGROUPMAP
+        WHERE
+          grp_cd = #{vo.grp_cd, jdbcType=VARCHAR} and rpt_cd = #{vo.rpt_cd, jdbcType=VARCHAR}
+    </delete>
+
+
+    <!--평가기준목록 정렬순서 변경-->
+    <update id="setEvalItemPosUpdate1" parameterType="map">
+        UPDATE
+        SLM_EQUIP_EVALITEM
+        <set>
+            <if test="vo.sort_seq &gt; vo.rowIndex">
+                sort_seq = sort_seq+1
+                WHERE sort_seq IN (SELECT sort_seq FROM SLM_EQUIP_EVALITEM WHERE sort_seq &gt;= #{vo.rowIndex, jdbcType=VARCHAR} AND sort_seq &lt; #{vo.sort_seq, jdbcType=VARCHAR})  AND grp_cd = #{vo.grp_cd, jdbcType=VARCHAR}
+            </if>
+            <if test="vo.sort_seq &lt; vo.rowIndex">
+                sort_seq = sort_seq-1
+                WHERE sort_seq IN (SELECT sort_seq FROM SLM_EQUIP_EVALITEM WHERE sort_seq &gt; #{vo.sort_seq, jdbcType=VARCHAR} AND sort_seq &lt;= #{vo.rowIndex, jdbcType=VARCHAR})  AND grp_cd = #{vo.grp_cd, jdbcType=VARCHAR}
+            </if>
+        </set>
+    </update>
+
+    <!--평가기준목록 정렬순서 변경-->
+    <update id="setEvalItemPosUpdate2" parameterType="map">
+        UPDATE
+        SLM_EQUIP_EVALITEM
+        SET
+        sort_seq = #{vo.rowIndex, jdbcType=VARCHAR}
+        WHERE
+        sort_seq = #{vo.sort_seq, jdbcType=VARCHAR}
+        AND
+        itm_cd = #{vo.itm_cd, jdbcType=VARCHAR}
+        AND
+        grp_cd = #{vo.grp_cd, jdbcType=VARCHAR}
+    </update>
+</mapper>

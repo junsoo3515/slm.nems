@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.security.SlaItemDao">
+
+    <!--보고서 항목이름 가져오기-->
+    <select id="getTopicNmList" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            rpt_cd AS id,
+            nm AS val
+        FROM
+            SLM_REPORT_CODE
+        ORDER BY
+            nm
+    </select>
+
+    <!--평가기준 관리 총 개수 가져오기-->
+    <select id="getSlaEvalListCnt" parameterType="map" resultType="int">
+        SELECT
+        COUNT(1)
+        FROM
+        SLM_SLA_EVAL
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcCode != null and srcCode != ''">
+                    AND (eval_cd LIKE '%${srcCode}%' OR item_nm LIKE '%${srcCode}%')
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!--평가기준 관리 목록 가져오기-->
+    <select id="getSlaEvalList" parameterType="map" resultType="slm.www.vo.security.SlaItemVO">
+        SELECT
+        *
+        FROM
+        (
+        SELECT
+        ROWNUM as rnum,
+        T.*
+        FROM
+        (
+        SELECT
+        *
+        FROM
+        SLM_SLA_EVAL
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcCode != null and srcCode != ''">
+                    AND ( eval_cd LIKE '%${srcCode}%' OR item_nm LIKE '%${srcCode}%')
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+        ) T
+        ) A0
+        WHERE
+        A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+        ORDER BY
+            eval_cd ASC
+    </select>
+
+    <!--평가기준 상세정보 가져오기-->
+    <select id="getSlaEvalData" parameterType="map" resultType="slm.www.vo.security.SlaItemVO">
+        SELECT
+            *
+            FROM
+                SLM_SLA_EVAL
+                WHERE
+                  eval_cd = #{eval_cd}
+    </select>
+
+    <!--평가기준 등록하기-->
+    <insert id="setSlaEvalAct" parameterType="slm.www.vo.security.SlaItemVO">
+        INSERT INTO SLM_SLA_EVAL (eval_cd, item_nm, weight, target, mea_method, mea_tool, mea_period, arith_expression_nm, arith_expression,
+                                    mea_cont, max_lev, min_lev, score_exce_nm, score_good_nm, score_normal_nm, score_insuf_nm, score_bad_nm,
+                                    score_exce, score_good, score_normal, score_insuf, score_bad, point_exce, point_good, point_normal,point_insuf,
+                                    point_bad, mea_res_unit)
+                           VALUES(#{vo.eval_cd}, #{vo.item_nm, jdbcType=VARCHAR }, #{vo.weight, jdbcType=INTEGER}, #{vo.target, jdbcType=VARCHAR}, #{vo.mea_method, jdbcType=VARCHAR}, #{vo.mea_tool, jdbcType=VARCHAR}, #{vo.mea_period, jdbcType=VARCHAR}, #{vo.arith_expression_nm, jdbcType=VARCHAR}, #{vo.arith_expression, jdbcType=VARCHAR},
+                                    #{vo.mea_cont, jdbcType=VARCHAR}, #{vo.max_lev, jdbcType=VARCHAR}, #{vo.min_lev, jdbcType=VARCHAR}, #{vo.score_exce_nm, jdbcType=VARCHAR}, #{vo.score_good_nm, jdbcType=VARCHAR}, #{vo.score_normal_nm, jdbcType=VARCHAR}, #{vo.score_insuf_nm, jdbcType=VARCHAR}, #{vo.score_bad_nm, jdbcType=VARCHAR},
+                                    #{vo.score_exce, jdbcType=VARCHAR}, #{vo.score_good, jdbcType=VARCHAR}, #{vo.score_normal, jdbcType=VARCHAR}, #{vo.score_insuf, jdbcType=VARCHAR}, #{vo.score_bad, jdbcType=VARCHAR}, #{vo.point_exce, jdbcType=FLOAT}, #{vo.point_good, jdbcType=FLOAT}, #{vo.point_normal, jdbcType=FLOAT},#{vo.point_insuf, jdbcType=FLOAT},
+                                    #{vo.point_bad, jdbcType=FLOAT}, #{vo.mea_res_unit, jdbcType=VARCHAR})
+    </insert>
+
+    <!--평가기준 수정하기-->
+    <update id="setSlaEvalUpdate" parameterType="slm.www.vo.security.SlaItemVO">
+        UPDATE
+            SLM_SLA_EVAL
+            SET
+                item_nm             = #{vo.item_nm, jdbcType=VARCHAR},
+                weight              = #{vo.weight, jdbcType=INTEGER},
+                target              = #{vo.target, jdbcType=VARCHAR},
+                mea_method          = #{vo.mea_method, jdbcType=VARCHAR},
+                mea_tool            = #{vo.mea_tool, jdbcType=VARCHAR},
+                mea_period          = #{vo.mea_period, jdbcType=VARCHAR},
+                arith_expression_nm =  #{vo.arith_expression_nm, jdbcType=VARCHAR},
+                arith_expression    =  #{vo.arith_expression, jdbcType=VARCHAR},
+                mea_cont            =  #{vo.mea_cont, jdbcType=VARCHAR},
+                max_lev             =  #{vo.max_lev, jdbcType=VARCHAR},
+                min_lev             =  #{vo.min_lev, jdbcType=VARCHAR},
+                score_exce_nm       =  #{vo.score_exce_nm, jdbcType=VARCHAR},
+                score_good_nm       =  #{vo.score_good_nm, jdbcType=VARCHAR},
+                score_normal_nm     =  #{vo.score_normal_nm, jdbcType=VARCHAR},
+                score_insuf_nm      =  #{vo.score_insuf_nm, jdbcType=VARCHAR},
+                score_bad_nm        =  #{vo.score_bad_nm, jdbcType=VARCHAR},
+                score_exce          =  #{vo.score_exce, jdbcType=VARCHAR},
+                score_good          =  #{vo.score_good, jdbcType=VARCHAR},
+                score_normal        =  #{vo.score_normal, jdbcType=VARCHAR},
+                score_insuf         =  #{vo.score_insuf, jdbcType=VARCHAR},
+                score_bad           =  #{vo.score_bad, jdbcType=VARCHAR},
+                point_exce          =  #{vo.point_exce, jdbcType=FLOAT},
+                point_good          =  #{vo.point_good, jdbcType=FLOAT},
+                point_normal        =  #{vo.point_normal, jdbcType=FLOAT},
+                point_insuf         =  #{vo.point_insuf, jdbcType=FLOAT},
+                point_bad           =  #{vo.point_bad, jdbcType=FLOAT},
+                mea_res_unit        =  #{vo.mea_res_unit, jdbcType=VARCHAR}
+            WHERE
+              eval_cd = #{vo.eval_cd}
+    </update>
+
+    <!--보고서 연결 개수 가져오기-->
+    <select id="getReportConnListCnt" parameterType="map" resultType="int">
+        SELECT
+        COUNT(1)
+        FROM
+            SLM_REPORT_CODE B, (SELECT eval_cd, rpt_cd FROM SLM_SLA_EVALMAP WHERE eval_cd = #{eval_cd}) A
+        WHERE
+            B.rpt_cd = A.rpt_cd
+    </select>
+
+    <!--보고서 연결 목록 가져오기-->
+    <select id="getReportConnList" parameterType="map" resultType="slm.www.vo.security.SlaItemVO">
+        SELECT
+            B.nm as prev_nm,
+            B.nm as nm,
+            B.rpt_cd as rpt_cd,
+            A.eval_cd as eval_cd
+        FROM
+            SLM_REPORT_CODE B, (SELECT eval_cd, rpt_cd FROM SLM_SLA_EVALMAP WHERE eval_cd = #{eval_cd}) A
+        WHERE
+            B.rpt_cd = A.rpt_cd
+
+    </select>
+
+    <!--보고서 연결 삭제하기-->
+    <delete id="setReportConnDel" parameterType="map">
+        DELETE
+        FROM
+           SLM_SLA_EVALMAP
+          WHERE
+             rpt_cd  = #{vo.rpt_cd, jdbcType=VARCHAR}
+             AND
+             eval_cd = #{vo.eval_cd, jdbcType=VARCHAR}
+    </delete>
+
+    <!--보고서 연결 등록하기-->
+    <insert id="setReportConnAct" parameterType="map">
+        INSERT INTO SLM_SLA_EVALMAP (rpt_cd, eval_cd) VALUES (#{vo.nm, jdbcType=VARCHAR}, #{vo.eval_cd, jdbcType=VARCHAR})
+    </insert>
+
+    <!--보고서 연결 수정하기-->
+    <update id="setReportConnUpdate" parameterType="map">
+        UPDATE
+            SLM_SLA_EVALMAP
+            SET
+              rpt_cd =  #{vo.nm, jdbcType=VARCHAR}
+            WHERE
+              eval_cd = #{vo.eval_cd, jdbcType=VARCHAR}
+              AND
+              rpt_cd = #{vo.rpt_cd, jdbcType=VARCHAR}
+
+    </update>
+</mapper>

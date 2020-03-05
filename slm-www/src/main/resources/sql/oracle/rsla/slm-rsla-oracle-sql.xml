@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.rsla.ReferenceDao">
+
+    <!--목록 가져오기-->
+    <select id="getSlaEva" parameterType="map" resultType="slm.www.vo.rsla.ReferenceVO">
+        SELECT
+            eval_cd ,
+            CASE
+              WHEN substr(eval_cd,1,2) = '01' THEN '적시성 관리'
+              WHEN substr(eval_cd,1,2) = '02' THEN '가용성 관리'
+              WHEN substr(eval_cd,1,2) = '03' THEN '생산성 및 보안 관리'
+              WHEN substr(eval_cd,1,2) = '04' THEN '일반 관리'
+            END AS menu_text,
+            item_nm ,
+            CASE
+              WHEN eval_cd = '0402' THEN '관리지표'
+              ELSE '평가지표'
+            END AS eval_text,
+            weight ,
+            max_lev ,
+            min_lev
+        FROM
+            SLM_SLA_EVAL
+        ORDER BY
+            eval_cd
+    </select>
+
+</mapper>

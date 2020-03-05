@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.rday.RequestDao">
+
+    <select id="getRdayRequestListCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            SLM_REQUEST T0,
+            SLM_EQUIPMENT T1
+        where T0.EQP_CD = T1.EQP_CD
+              AND T0.USE_FL = 'Y'
+
+        <if test="vo.isSearch == true">
+            <if test="srcHeadGrp != null and srcHeadGrp != ''">
+                <if test="sDate != null and sDate != ''">
+                    AND T0.${srcHeadGrp} &gt;= #{sDate}
+                </if>
+                <if test="eDate != null and eDate != ''">
+                    AND T0.${srcHeadGrp} &lt;= #{eDate}
+                </if>
+            </if>
+            <if test="fin_fl != null and fin_fl != ''">
+                AND T0.fin_fl = #{fin_fl}
+            </if>
+            <if test="srcGrp != null and srcGrp != ''">
+                AND T1.EQP_GRP_CD = #{srcGrp}
+            </if>
+            <if test="srcRequestGrp != null and srcRequestGrp != ''">
+                AND T0.TYPE_CD = #{srcRequestGrp}
+            </if>
+        </if>
+    </select>
+    <select id="getRdayRequestMeasureListCnt" parameterType="map" resultType="int">
+        SELECT
+          COUNT(1)
+        FROM
+          SLM_MEASURE
+        where GUBUN_CD = 'B'
+        AND CAUSE_SEQ = #{cause_seq}
+    </select>
+    <!--요청사항 가져오기-->
+    <select id="getRdayRequestList" parameterType="map" resultType="slm.www.vo.rday.RequestVO">
+        SELECT
+            *
+        FROM
+            (
+            SELECT
+              ROWNUM as rnum,
+              T.request_type_nm,
+              T.equip_type_nm,
+              T.REQ_SEQ,
+              T.EQP_NM,
+              (CASE WHEN T.req_dt='--' THEN '' ELSE T.req_dt end) req_dt,
+              (CASE WHEN T.MEA_PLAN_DT='--' THEN '' ELSE T.MEA_PLAN_DT end) MEA_PLAN_DT,
+              (CASE WHEN T.MEA_FIN_DT='--' THEN '' ELSE T.MEA_FIN_DT end) MEA_FIN_DT,
+              T.fin_nm,
+              T.REG_MEM_NM
+
+            FROM
+              (
+                    SELECT
+                        (select CD_NM  from COM_CODE  WHERE COM_CD = T0.TYPE_CD AND jong_cd = 'RT' AND ROWNUM = 1) request_type_nm,
+                        (select CD_NM  from COM_CODE  WHERE COM_CD = T1.EQP_GRP_CD AND jong_cd = 'EG' AND ROWNUM = 1) equip_type_nm,
+                        T0.REQ_SEQ,
+                        T1.EQP_NM,
+                        ( SUBSTR(T0.REQ_DT,1,4)||'-'||SUBSTR(T0.REQ_DT,5,2)||'-'||SUBSTR(T0.REQ_DT,7,2) ) as req_dt,
+                        ( SUBSTR(T0.MEA_PLAN_DT,1,4)||'-'||SUBSTR(T0.MEA_PLAN_DT,5,2)||'-'||SUBSTR(T0.MEA_PLAN_DT,7,2))  as MEA_PLAN_DT,
+                        ( SUBSTR(T0.MEA_FIN_DT,1,4)||'-'||SUBSTR(T0.MEA_FIN_DT,5,2)||'-'||SUBSTR(T0.MEA_FIN_DT,7,2)) as MEA_FIN_DT,
+                        CASE
+                        WHEN T0.FIN_FL = 'Y' THEN '완료'
+                        WHEN T0.FIN_FL = 'N' THEN '진행중'
+                        END AS fin_nm,
+                        T0.REG_MEM_NM
+
+                    FROM
+
+                        SLM_REQUEST T0 , SLM_EQUIPMENT T1
+
+                    where T0.EQP_CD = T1.EQP_CD
+                         AND T0.USE_FL = 'Y'
+
+
+                    <if test="vo.isSearch == true">
+                        <if test="srcHeadGrp != null and srcHeadGrp != ''">
+                            <if test="sDate != null and sDate != ''">
+                                AND T0.${srcHeadGrp} &gt;= #{sDate}
+                            </if>
+                            <if test="eDate != null and eDate != ''">
+                                AND T0.${srcHeadGrp} &lt;= #{eDate}
+                            </if>
+                        </if>
+                        <if test="fin_fl != null and fin_fl != ''">
+                            AND T0.fin_fl = #{fin_fl}
+                        </if>
+                        <if test="srcGrp != null and srcGrp != ''">
+                            AND T1.EQP_GRP_CD = #{srcGrp}
+                        </if>
+                        <if test="srcRequestGrp != null and srcRequestGrp != ''">
+                            AND T0.TYPE_CD = #{srcRequestGrp}
+                        </if>
+                    </if>
+
+                    <trim prefix="ORDER BY" prefixOverrides=",">
+                        <choose>
+                            <when test="vo.sortID != null and vo.sortID != ''">
+                                , ${vo.sortID} ${vo.sortDesc}
+                            </when>
+                            <otherwise>
+                                , T0.reg_dts DESC
+                            </otherwise>
+                        </choose>
+                    </trim>
+
+               ) T
+        ) A0
+
+        WHERE
+           A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+    </select>
+
+    <!--요청사항조치사항 가져오기-->
+    <select id="getRdayRequestMeasureList" parameterType="map" resultType="slm.www.vo.rday.MeaSureVO">
+
+        SELECT
+            *
+        FROM
+            (
+            SELECT
+              ROWNUM as rnum,
+              T.*
+            FROM
+              (
+                    SELECT
+                        MEA_SEQ,
+                        TO_CHAR(TO_DATE (MEA_DT, 'YYYYMMDD HH24MISS'),'YYYY-MM-DD HH24:MI:SS') as MEA_DT,
+                        CONT as measure_cont
+                    FROM
+
+                        SLM_MEASURE
+
+                    where GUBUN_CD = 'B'
+                    AND CAUSE_SEQ = #{cause_seq}
+                    ORDER BY MEA_DT DESC
+               ) T
+        ) A0
+
+        WHERE
+           A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+    </select>
+
+    <!-- 요청사항 상세정보 가져오기 -->
+    <select id="getRdayRequestData" parameterType="map" resultType="slm.www.vo.rday.RequestVO">
+        SELECT
+            T0.TYPE_CD request_type,
+            T1.EQP_GRP_CD equip_type,
+            T1.EQP_NM,
+            T0.EQP_CD,
+            ( SUBSTR(T0.REQ_DT,1,4)||'-'||SUBSTR(T0.REQ_DT,5,2)||'-'||SUBSTR(T0.REQ_DT,7,2) ) as req_dt,
+            ( SUBSTR(T0.MEA_PLAN_DT,1,4)||'-'||SUBSTR(T0.MEA_PLAN_DT,5,2)||'-'||SUBSTR(T0.MEA_PLAN_DT,7,2)) as MEA_PLAN_DT,
+            ( SUBSTR(T0.MEA_FIN_DT,1,4)||'-'||SUBSTR(T0.MEA_FIN_DT,5,2)||'-'||SUBSTR(T0.MEA_FIN_DT,7,2)) as MEA_FIN_DT,
+            T0.CONT,
+            T0.REG_MEM_NM,
+            T0.FIN_FL
+        FROM
+            SLM_REQUEST T0 , SLM_EQUIPMENT T1
+        where   T0.EQP_CD = T1.EQP_CD
+                and  t0.req_seq=#{key}
+    </select>
+
+
+    <!-- 요청사항정보 Insert -->
+    <insert id="setRequestInsert" parameterType="slm.www.vo.rday.RequestVO">
+        INSERT INTO SLM_REQUEST
+        (
+            REQ_SEQ,
+            EQP_CD,
+            TYPE_CD,
+            REQ_DT,
+            MEA_PLAN_DT,
+            MEA_FIN_DT,
+            CONT,
+            FIN_FL,
+            REG_MEM_ID,
+            REG_MEM_NM,
+            USE_FL,
+            REG_DTS,
+            MOD_DTS
+        ) VALUES
+        (
+            (select NVL(MAX(req_seq), 0) + 1 from SLM_REQUEST),
+            #{vo.eqp_cd},
+            #{vo.request_type},
+            #{vo.req_dt},
+            #{vo.mea_plan_dt},
+            #{vo.mea_fin_dt},
+            #{vo.cont},
+            #{vo.fin_fl},
+            #{vo.reg_mem_id},
+            #{vo.reg_mem_nm},
+            'Y',
+            sysdate,
+            sysdate
+        )
+    </insert>
+
+    <!-- 요청사항정보 Update -->
+    <update id="setRequestUpdate" parameterType="slm.www.vo.rday.RequestVO">
+        UPDATE
+            SLM_REQUEST
+        SET
+            TYPE_CD = #{vo.request_type},
+            EQP_CD = #{vo.eqp_cd},
+            REQ_DT = #{vo.req_dt},
+            REG_MEM_NM = #{vo.reg_mem_nm},
+            MEA_PLAN_DT = #{vo.mea_plan_dt},
+            MEA_FIN_DT = #{vo.mea_fin_dt},
+            CONT = #{vo.cont},
+            FIN_FL = #{vo.fin_fl},
+            MOD_DTS = sysdate
+        WHERE
+            REQ_SEQ = #{vo.req_seq}
+    </update>
+    <!-- 요청사항조치사항정보 Insert -->
+    <insert id="setRequestMeasureInsert" parameterType="slm.www.vo.rday.MeaSureVO">
+        INSERT INTO SLM_MEASURE
+        (
+            MEA_SEQ,
+            GUBUN_CD,
+            CAUSE_SEQ,
+            MEA_DT,
+            CONT,
+            REG_MEM_ID,
+            REG_MEM_NM,
+            REG_DTS,
+            MOD_DTS
+        ) VALUES
+        (
+            (select NVL(MAX(mea_seq), 0) + 1 from SLM_MEASURE),
+            'B',
+            #{vo.cause_seq},
+            #{vo.mea_dt},
+            #{vo.measure_cont},
+            #{vo.reg_mem_id},
+            #{vo.reg_mem_nm},
+            sysdate,
+            sysdate
+        )
+    </insert>
+
+    <!-- 요청사항조치사항정보 Update -->
+    <update id="setRequestMeasureUpdate" parameterType="slm.www.vo.rday.MeaSureVO">
+        UPDATE
+            SLM_MEASURE
+        SET
+            MEA_DT = #{vo.mea_dt},
+            CONT = #{vo.measure_cont},
+            MOD_DTS = sysdate
+        WHERE
+            MEA_SEQ = #{vo.mea_seq}
+    </update>
+
+    <!-- 요청사항정보 Delete -->
+    <update  id="setRequestDelete" parameterType="slm.www.vo.rday.RequestVO">
+        UPDATE
+          SLM_REQUEST
+        SET
+          USE_FL = 'N'
+        WHERE
+          DIS_SEQ= #{vo.req_seq}
+    </update>
+    <!-- 요청사항정보 Delete -->
+    <delete  id="setRequestMeasureDelete" parameterType="slm.www.vo.rday.MeaSureVO">
+        DELETE
+        FROM
+          SLM_MEASURE
+        WHERE
+          MEA_SEQ= #{vo.mea_seq}
+    </delete>
+</mapper>

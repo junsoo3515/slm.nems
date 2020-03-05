@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.security.EquipGItemDao">
+
+
+    <!-- 장비그룹 기본항목 관리 장비유형 가져오기(Select2) -->
+    <select id="getEquipTypeSelect2" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            eqp_grp_cd as id,
+            eqp_nm as text
+        FROM
+            SLM_EQUIPMENT
+        WHERE
+            eqp_nm LIKE '%${word}%'
+    </select>
+
+    <!--기본항목 관리 총 개수 가져오기-->
+    <select id="getEqpGrpListCnt" parameterType="map" resultType="int">
+        SELECT
+        COUNT(1)
+        FROM
+        (
+        SELECT
+        T.*
+        FROM
+        (
+        SELECT
+        A.topic_cd as topic_cd,
+        A.eqp_grp_cd as eqp_grp_cd,
+        A.topic_nm as topic_nm,
+        A.eng_nm as eng_nm,
+        A.use_fl as use_fl,
+        A.pos as pos,
+        (SELECT cd_nm FROM COM_CODE WHERE jong_cd = 'EG' AND com_cd = A.eqp_grp_cd AND ROWNUM = 1) eqp_nm
+        FROM
+        SLM_EQUIPGRP_TOPIC A
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcEqpType != null and srcEqpType != ''">
+                    AND eqp_grp_cd = #{srcEqpType}
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+        ) T
+        ) A0
+
+    </select>
+
+    <!--기본항목 관리 목록 가져오기-->
+
+    <select id="getEqpGrpList" parameterType="map" resultType="slm.www.vo.security.EquipGItemVO">
+        SELECT
+        *
+        FROM
+        (
+        SELECT
+        ROWNUM as rnum,
+        T.*
+        FROM
+        (
+        SELECT
+        A.topic_cd as topic_cd,
+        A.eqp_grp_cd as eqp_grp_cd,
+        A.topic_nm as topic_nm,
+        A.eng_nm as eng_nm,
+        A.use_fl as use_fl,
+        A.pos as pos,
+        (SELECT cd_nm FROM COM_CODE WHERE jong_cd = 'EG' AND com_cd = A.eqp_grp_cd AND ROWNUM = 1) eqp_nm
+        FROM
+        SLM_EQUIPGRP_TOPIC A
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcEqpType != null and srcEqpType != ''">
+                    AND eqp_grp_cd = #{srcEqpType}
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+        ) T
+        ) A0
+        WHERE
+        A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+        ORDER BY pos,topic_cd asc
+    </select>
+
+    <!--기본항목관리 Insert-->
+    <insert id="setEqpGrpInsert" parameterType="map">
+        INSERT INTO SLM_EQUIPGRP_TOPIC (topic_cd, eqp_grp_cd, topic_nm, eng_nm, use_fl, pos)
+         VALUES(#{vo.topic_cd, jdbcType=VARCHAR},#{vo.eqp_nm, jdbcType=VARCHAR},#{vo.topic_nm, jdbcType=VARCHAR}, #{vo.eng_nm, jdbcType=VARCHAR}, #{vo.use_fl, jdbcType=VARCHAR}, #{vo.pos, jdbcType=VARCHAR})
+    </insert>
+
+    <!--기본항목관리 Update-->
+    <update id="setEqpGrpUpdate" parameterType="map">
+        UPDATE
+        SLM_EQUIPGRP_TOPIC
+        SET
+        topic_nm = #{vo.topic_nm, jdbcType=VARCHAR},
+        eng_nm = #{vo.eng_nm, jdbcType=VARCHAR},
+        use_fl = #{vo.use_fl, jdbcType=VARCHAR},
+        pos = #{vo.pos, jdbcType=VARCHAR}
+        WHERE
+        topic_cd = #{vo.topic_cd, jdbcType=VARCHAR}
+        AND
+        eqp_grp_cd = #{vo.eqp_grp_cd, jdbcType=VARCHAR}
+        AND
+        topic_nm = #{vo.prev_topic_nm, jdbcType=VARCHAR}
+        AND
+        eng_nm = #{vo.prev_eng_nm, jdbcType=VARCHAR}
+        AND
+        use_fl = #{vo.prev_use_fl, jdbcType=VARCHAR}
+        AND
+        pos = #{vo.prev_pos, jdbcType=VARCHAR}
+
+    </update>
+
+    <!--장비그룹 기본항목 정렬순서 변경 -->
+    <update id="setEqpGItemPosUpdate1" parameterType="map">
+        UPDATE
+        SLM_EQUIPGRP_TOPIC
+        <set>
+            <if test="vo.pos &gt; vo.rowIndex">
+                pos = pos+1
+                WHERE pos IN (SELECT pos FROM SLM_EQUIPGRP_TOPIC WHERE pos &gt;= #{vo.rowIndex, jdbcType=VARCHAR} AND pos &lt; #{vo.pos, jdbcType=VARCHAR})  AND eqp_grp_cd = #{vo.eqp_grp_cd, jdbcType=VARCHAR}
+            </if>
+            <if test="vo.pos &lt; vo.rowIndex">
+                pos = pos-1
+                WHERE pos IN (SELECT pos FROM SLM_EQUIPGRP_TOPIC WHERE pos &gt; #{vo.pos, jdbcType=VARCHAR} AND pos &lt;= #{vo.rowIndex, jdbcType=VARCHAR})  AND eqp_grp_cd = #{vo.eqp_grp_cd, jdbcType=VARCHAR}
+            </if>
+        </set>
+    </update>
+
+    <!--장비그룹 기본항목 정렬순서 변경 -->
+    <update id="setEqpGItemPosUpdate2" parameterType="map">
+        UPDATE
+        SLM_EQUIPGRP_TOPIC
+        SET
+        pos = #{vo.rowIndex, jdbcType=VARCHAR}
+        WHERE
+        pos = #{vo.pos, jdbcType=VARCHAR}
+        AND
+        eqp_grp_cd = #{vo.eqp_grp_cd, jdbcType=VARCHAR}
+        AND
+        topic_cd = #{vo.topic_cd, jdbcType=VARCHAR}
+    </update>
+</mapper>

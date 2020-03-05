@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.rday.TroubleShootDao">
+
+    <select id="getRdayTroubleShootListCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            SLM_DISORDER T0,
+            SLM_EQUIPMENT T1
+        where T0.EQP_CD = T1.EQP_CD
+              AND T0.USE_FL = 'Y'
+
+        <if test="vo.isSearch == true">
+            <if test="srcHeadGrp != null and srcHeadGrp != ''">
+                <if test="sDate != null and sDate != ''">
+                    AND T0.${srcHeadGrp} &gt;= #{sDate}
+                </if>
+                <if test="eDate != null and eDate != ''">
+                    AND T0.${srcHeadGrp} &lt;= #{eDate}
+                </if>
+            </if>
+            <if test="fin_fl != null and fin_fl != ''">
+                AND T0.fin_fl = #{fin_fl}
+            </if>
+            <if test="srcGrp != null and srcGrp != ''">
+                AND T1.EQP_GRP_CD = #{srcGrp}
+            </if>
+        </if>
+    </select>
+    <select id="getRdayTroubleShootMeasureListCnt" parameterType="map" resultType="int">
+        SELECT
+          COUNT(1)
+        FROM
+          SLM_MEASURE
+        where GUBUN_CD = 'A'
+        AND CAUSE_SEQ = #{cause_seq}
+    </select>
+    <!--장애처리 가져오기-->
+    <select id="getRdayTroubleShootList" parameterType="map" resultType="slm.www.vo.rday.TroubleShootVO">
+        SELECT
+            *
+        FROM
+            (
+            SELECT
+              ROWNUM as rnum,
+              T.disorder_type_nm,
+              T.equip_type_nm,
+              T.DIS_SEQ,
+              T.EQP_NM,
+              (CASE WHEN T.occur_dt='--' THEN '' ELSE T.occur_dt end) occur_dt,
+              (CASE WHEN T.MEA_PLAN_DT='--' THEN '' ELSE T.MEA_PLAN_DT end) MEA_PLAN_DT,
+              (CASE WHEN T.MEA_FIN_DT='--' THEN '' ELSE T.MEA_FIN_DT end) MEA_FIN_DT,
+              T.fin_nm,
+              (CASE WHEN T.SV_STOP_DT='--' THEN '' ELSE T.SV_STOP_DT end) SV_STOP_DT,
+              (CASE WHEN T.SV_START_DT='--' THEN '' ELSE T.SV_START_DT end) SV_START_DT
+            FROM
+              (
+                    SELECT
+                        (select CD_NM  from COM_CODE  WHERE COM_CD = T0.TYPE_CD AND jong_cd = 'ET' AND ROWNUM = 1) disorder_type_nm,
+                        (select CD_NM  from COM_CODE  WHERE COM_CD = T1.EQP_GRP_CD AND jong_cd = 'EG' AND ROWNUM = 1) equip_type_nm,
+                        T0.DIS_SEQ,
+                        T1.EQP_NM,
+                        ( SUBSTR(T0.OCCUR_DT,1,4)||'-'||SUBSTR(T0.OCCUR_DT,5,2)||'-'||SUBSTR(T0.OCCUR_DT,7,2) ) as occur_dt,
+                        ( SUBSTR(T0.MEA_PLAN_DT,1,4)||'-'||SUBSTR(T0.MEA_PLAN_DT,5,2)||'-'||SUBSTR(T0.MEA_PLAN_DT,7,2)) as MEA_PLAN_DT,
+                        ( SUBSTR(T0.MEA_FIN_DT,1,4)||'-'||SUBSTR(T0.MEA_FIN_DT,5,2)||'-'||SUBSTR(T0.MEA_FIN_DT,7,2)) as MEA_FIN_DT,
+                        CASE
+                        WHEN T0.FIN_FL = 'Y' THEN '완료'
+                        WHEN T0.FIN_FL = 'N' THEN '진행중'
+                        END AS fin_nm,
+
+                        ( SUBSTR(T0.SV_STOP_DT,1,4)||'-'||SUBSTR(T0.SV_STOP_DT,5,2)||'-'||SUBSTR(T0.SV_STOP_DT,7,2)) as SV_STOP_DT,
+                        ( SUBSTR(T0.SV_START_DT,1,4)||'-'||SUBSTR(T0.SV_START_DT,5,2)||'-'||SUBSTR(T0.SV_START_DT,7,2)) as SV_START_DT
+                    FROM
+
+                        SLM_DISORDER T0 , SLM_EQUIPMENT T1
+
+                    where T0.EQP_CD = T1.EQP_CD
+                         AND T0.USE_FL = 'Y'
+
+
+                    <if test="vo.isSearch == true">
+                        <if test="srcHeadGrp != null and srcHeadGrp != ''">
+                            <if test="sDate != null and sDate != ''">
+                                AND T0.${srcHeadGrp} &gt;= #{sDate}
+                            </if>
+                            <if test="eDate != null and eDate != ''">
+                                AND T0.${srcHeadGrp} &lt;= #{eDate}
+                            </if>
+                        </if>
+                        <if test="fin_fl != null and fin_fl != ''">
+                            AND T0.fin_fl = #{fin_fl}
+                        </if>
+                        <if test="srcGrp != null and srcGrp != ''">
+                            AND T1.EQP_GRP_CD = #{srcGrp}
+                        </if>
+                    </if>
+
+                    <trim prefix="ORDER BY" prefixOverrides=",">
+                        <choose>
+                            <when test="vo.sortID != null and vo.sortID != ''">
+                                , ${vo.sortID} ${vo.sortDesc}
+                            </when>
+                            <otherwise>
+                                , T0.reg_dts DESC
+                            </otherwise>
+                        </choose>
+                    </trim>
+
+               ) T
+        ) A0
+
+        WHERE
+           A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+    </select>
+
+    <!--장애처리조치사항 가져오기-->
+    <select id="getRdayTroubleShootMeasureList" parameterType="map" resultType="slm.www.vo.rday.MeaSureVO">
+
+        SELECT
+            *
+        FROM
+            (
+            SELECT
+              ROWNUM as rnum,
+              T.*
+            FROM
+              (
+                    SELECT
+                        MEA_SEQ,
+                        TO_CHAR(TO_DATE (MEA_DT, 'YYYYMMDD HH24MISS'),'YYYY-MM-DD HH24:MI:SS') as MEA_DT,
+                        CONT as measure_cont
+                    FROM
+
+                        SLM_MEASURE
+
+                    where GUBUN_CD = 'A'
+                    AND CAUSE_SEQ = #{cause_seq}
+                    ORDER BY MEA_DT DESC
+               ) T
+        ) A0
+
+        WHERE
+           A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+    </select>
+
+    <!-- 장애처리 상세정보 가져오기 -->
+    <select id="getRdayTroubleShootData" parameterType="map" resultType="slm.www.vo.rday.TroubleShootVO">
+        SELECT
+            T0.TYPE_CD disorder_type,
+            T1.EQP_GRP_CD equip_type,
+            T0.WTYPE_CD work_type,
+            T0.MTYPE_CD mea_type,
+            T0.WSTATE_CD work_state,
+            (select CD_NM  from COM_CODE  WHERE COM_CD = T0.TYPE_CD AND jong_cd = 'ET' AND ROWNUM = 1) disorder_type_nm,
+            (select CD_NM  from COM_CODE  WHERE COM_CD = T1.EQP_GRP_CD AND jong_cd = 'EG' AND ROWNUM = 1) equip_type_nm,
+            (select CD_NM  from COM_CODE  WHERE COM_CD = T0.WTYPE_CD AND jong_cd = 'WT' AND ROWNUM = 1) work_type_nm,
+            (select CD_NM  from COM_CODE  WHERE COM_CD = T0.MTYPE_CD AND jong_cd = 'AI' AND ROWNUM = 1) mea_type_nm,
+            (select CD_NM  from COM_CODE  WHERE COM_CD = T0.WSTATE_CD AND jong_cd = 'WS' AND ROWNUM = 1) work_state_nm,
+            T1.EQP_NM,
+            T0.EQP_CD,
+            T0.ERR_FL,
+            TO_CHAR(TO_DATE (T0.occur_dt, 'YYYYMMDD HH24MISS'),'YYYY-MM-DD HH24:MI:SS') as occur_dt,
+            TO_CHAR(TO_DATE (T0.MEA_PLAN_DT, 'YYYYMMDD HH24MISS'),'YYYY-MM-DD HH24:MI:SS') as MEA_PLAN_DT,
+            TO_CHAR(TO_DATE (T0.MEA_FIN_DT, 'YYYYMMDD HH24MISS'),'YYYY-MM-DD HH24:MI:SS') as MEA_FIN_DT,
+            T0.CONT,
+            T0.FIN_FL,
+            T0.NATURE_FL,
+            TO_CHAR(TO_DATE (T0.SV_STOP_DT, 'YYYYMMDD HH24MISS'),'YYYY-MM-DD HH24:MI:SS') as SV_STOP_DT,
+            TO_CHAR(TO_DATE (T0.SV_START_DT, 'YYYYMMDD HH24MISS'),'YYYY-MM-DD HH24:MI:SS') as SV_START_DT,
+            T0.SUMM_CONT
+        FROM
+            SLM_DISORDER T0 , SLM_EQUIPMENT T1
+        where   T0.EQP_CD = T1.EQP_CD
+                and  t0.dis_seq=#{key}
+    </select>
+
+    <!-- 장애처리 상세정보 가져오기 -->
+    <select id="getRdayTroubleShootReportFileNm" parameterType="map" resultType="String">
+        SELECT
+            rpt_file
+        FROM
+            SLM_DISORDER
+        where
+            dis_seq=#{key}
+    </select>
+
+
+    <!-- 장애처리정보 Insert -->
+    <insert id="setTroubleShootInsert" parameterType="slm.www.vo.rday.TroubleShootVO">
+        INSERT INTO SLM_DISORDER
+        (
+            DIS_SEQ,
+            EQP_CD,
+            TYPE_CD,
+            WTYPE_CD,
+            WSTATE_CD,
+            MTYPE_CD,
+            OCCUR_DT,
+            MEA_PLAN_DT,
+            MEA_FIN_DT,
+            SUMM_CONT,
+            CONT,
+            FIN_FL,
+            SV_STOP_DT,
+            SV_START_DT,
+            NATURE_FL,
+            ERR_FL,
+            REG_MEM_ID,
+            REG_MEM_NM,
+            USE_FL,
+            RPT_FILE,
+            REG_DTS,
+            MOD_DTS
+        ) VALUES
+        (
+            (select NVL(MAX(dis_seq), 0) + 1 from SLM_DISORDER),
+            #{vo.eqp_cd},
+            #{vo.disorder_type},
+            #{vo.work_type},
+            #{vo.work_state},
+            #{vo.mea_type},
+            #{vo.occur_dt},
+            #{vo.mea_plan_dt},
+            #{vo.mea_fin_dt},
+            #{vo.summ_cont},
+            #{vo.cont},
+            #{vo.fin_fl},
+            #{vo.sv_stop_dt},
+            #{vo.sv_start_dt},
+            #{vo.nature_fl},
+            #{vo.err_fl},
+            #{vo.reg_mem_id},
+            #{vo.reg_mem_nm},
+            'Y',
+            (select ETC from COM_CODE WHERE COM_CD='ERR' AND JONG_CD='OZ' AND ROWNUM=1),
+            sysdate,
+            sysdate
+        )
+    </insert>
+
+    <!-- 장애처리정보 Update -->
+    <update id="setTroubleShootUpdate" parameterType="slm.www.vo.rday.TroubleShootVO">
+        UPDATE
+            SLM_DISORDER
+        SET
+            TYPE_CD = #{vo.disorder_type},
+            WTYPE_CD = #{vo.work_type},
+            WSTATE_CD  = #{vo.work_state},
+            MTYPE_CD = #{vo.mea_type},
+            EQP_CD = #{vo.eqp_cd},
+            OCCUR_DT = #{vo.occur_dt},
+            MEA_PLAN_DT = #{vo.mea_plan_dt},
+            MEA_FIN_DT = #{vo.mea_fin_dt},
+            CONT = #{vo.cont},
+            SUMM_CONT = #{vo.summ_cont},
+            NATURE_FL = #{vo.nature_fl},
+            FIN_FL = #{vo.fin_fl},
+            ERR_FL = #{vo.err_fl},
+            SV_STOP_DT = #{vo.sv_stop_dt},
+            SV_START_DT = #{vo.sv_start_dt},
+            MOD_DTS = sysdate
+        WHERE
+            DIS_SEQ = #{vo.dis_seq}
+    </update>
+    <!-- 장애처리조치사항정보 Insert -->
+    <insert id="setTroubleShootMeasureInsert" parameterType="slm.www.vo.rday.MeaSureVO">
+        INSERT INTO SLM_MEASURE
+        (
+            MEA_SEQ,
+            GUBUN_CD,
+            CAUSE_SEQ,
+            MEA_DT,
+            CONT,
+            REG_MEM_ID,
+            REG_MEM_NM,
+            REG_DTS,
+            MOD_DTS
+        ) VALUES
+        (
+            (select NVL(MAX(mea_seq), 0) + 1 from SLM_MEASURE),
+            'A',
+            #{vo.cause_seq},
+            #{vo.mea_dt},
+            #{vo.measure_cont},
+            #{vo.reg_mem_id},
+            #{vo.reg_mem_nm},
+            sysdate,
+            sysdate
+        )
+    </insert>
+
+    <!-- 장애처리조치사항정보 Update -->
+    <update id="setTroubleShootMeasureUpdate" parameterType="slm.www.vo.rday.MeaSureVO">
+        UPDATE
+            SLM_MEASURE
+        SET
+            MEA_DT = #{vo.mea_dt},
+            CONT = #{vo.measure_cont},
+            MOD_DTS = sysdate
+        WHERE
+            MEA_SEQ = #{vo.mea_seq}
+    </update>
+
+    <!-- 장애처리정보 Delete -->
+    <update  id="setTroubleShootDelete" parameterType="slm.www.vo.rday.TroubleShootVO">
+        UPDATE
+          SLM_DISORDER
+        SET
+          USE_FL = 'N'
+        WHERE
+          DIS_SEQ= #{vo.dis_seq}
+    </update>
+    <!-- 장애처리정보 Delete -->
+    <delete  id="setTroubleShootMeasureDelete" parameterType="slm.www.vo.rday.MeaSureVO">
+        DELETE
+        FROM
+          SLM_MEASURE
+        WHERE
+          MEA_SEQ= #{vo.mea_seq}
+    </delete>
+    <!-- 작업자 정보 목록 가져오기-->
+    <select id="getRdayTroubleShootWorkerList" parameterType="map" resultType="slm.www.vo.rday.TroubleShootVO">
+        SELECT
+        DISTINCT
+        dis_seq,
+        work_mem_id,
+        nm,
+        comp_nm,
+        tel,
+        email
+        FROM
+        SLM_WORKER
+        WHERE
+        dis_seq = #{dis_seq, jdbcType=VARCHAR}
+
+    </select>
+
+    <!-- 작업자 정보 저장하기(Update) -->
+    <update id="setWorkerGridUpdate" parameterType="map">
+        UPDATE
+        SLM_WORKER
+        <set>
+            work_mem_id = #{vo.nm},
+            nm = (SELECT nm FROM COM_MEM_INFO WHERE mem_id = #{vo.nm}),
+            comp_nm = #{vo.comp_nm, jdbcType=VARCHAR},
+            tel = (SELECT tel_hp FROM COM_MEM_INFO WHERE mem_id = #{vo.nm}),
+            email = (SELECT email FROM COM_MEM_INFO WHERE mem_id = #{vo.nm})
+        </set>
+        WHERE
+        dis_seq = #{vo.dis_seq, jdbcType=VARCHAR}
+        AND
+        work_mem_id = #{vo.work_mem_id}
+    </update>
+
+    <!-- 작업자 정보 삭제하기(Delete) -->
+    <delete id="setWorkerGridDelete" parameterType="map">
+        DELETE
+        FROM
+        SLM_WORKER
+        WHERE
+        dis_seq = #{vo.dis_seq, jdbcType=VARCHAR}
+        AND
+        work_mem_id = #{vo.work_mem_id, jdbcType=VARCHAR}
+    </delete>
+
+    <!-- 작업자 정보 저장하기(Insert)-->
+    <insert id="setWorkerGridInsert" parameterType="map">
+        INSERT INTO SLM_WORKER (work_seq, dis_seq, work_mem_id, nm, comp_nm, tel, email)
+        VALUES( (SELECT NVL(MAX(work_seq),0)+1 FROM SLM_WORKER), #{vo.dis_seq, jdbcType=VARCHAR}, #{vo.nm},(SELECT nm FROM COM_MEM_INFO WHERE mem_id = #{vo.nm} ), #{vo.comp_nm, jdbcType=VARCHAR}, (SELECT tel_hp FROM COM_MEM_INFO WHERE mem_id = #{vo.nm}), (SELECT email FROM COM_MEM_INFO WHERE mem_id = #{vo.nm}))
+
+    </insert>
+    <!-- 작업자정보 이름 가져오기(Select2)-->
+    <select id="getWorkerNameSelect2" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+        mem_id as id,
+        nm as text
+        FROM
+        COM_MEM_INFO
+        WHERE
+        auth_cd = 'A' OR auth_cd = 'B'
+        AND
+        nm LIKE '%${word}%'
+    </select>
+
+    <!-- 작업자 정보 이름 선택 시 세부정보 가져오기-->
+    <select id="getWorkerInfoSetting" parameterType="map" resultType="slm.www.vo.rday.TroubleShootVO">
+        SELECT
+        *
+        FROM
+        COM_MEM_INFO
+        WHERE
+        mem_id = #{mem_id, jdbcType=VARCHAR}
+    </select>
+
+    <!-- 선택한 파일명 가져오기 -->
+    <select id="getFileName" parameterType="map" resultType="slm.www.vo.rday.TroubleShootVO">
+        SELECT
+        (SELECT file_title FROM COM_FILES WHERE gubun_cd = 'SB' AND real_seq = #{vo.real_seq, jdbcType=VARCHAR}) as wbFileName,
+        (SELECT file_title FROM COM_FILES WHERE gubun_cd = 'SA' AND real_seq = #{vo.real_seq, jdbcType=VARCHAR}) as waFileName
+        FROM
+        COM_FILES
+        WHERE
+        ROWNUM = 1
+
+    </select>
+
+    <!-- 선택한 파일 삭제하기 (Delete)-->
+    <delete id="setFileDel" parameterType="map">
+        DELETE
+        FROM
+        COM_FILES
+        WHERE
+        real_seq = #{vo.real_seq}
+        <if test=" vo.gubun_cd != 'SASB' ">
+        AND
+        gubun_cd = #{vo.gubun_cd, jdbcType=VARCHAR}
+        </if>
+
+    </delete>
+</mapper>

@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.security.RptItemDao">
+
+    <!--보고서 항목 가져오기-->
+    <select id="getRptTopicNmList" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            rpt_cd as id,
+            nm as val
+        FROM
+            SLM_REPORT_CODE
+        ORDER BY
+            nm
+
+    </select>
+    <!--보고서 항목 가져오기(Select2)-->
+    <select id="getRptTopicNmSelect2" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            rpt_cd as id,
+            nm as text
+        FROM
+            SLM_REPORT_CODE
+        WHERE
+            nm LIKE '%${word}%'
+        ORDER BY
+            nm
+
+    </select>
+
+
+
+    <!--항목 가져오기-->
+    <select id="getTopicList" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            topic_cd as id,
+            topic_nm as val
+        FROM
+            SLM_REPORT_TOPIC
+    </select>
+
+    <!--외부연계 항목 가져오기-->
+    <select id="getLinkTopicList" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            DISTINCT link_itm_cd as id,
+                      link_itm_cd as val
+        FROM
+            SLM_REPORT_TOPIC
+        WHERE
+            link_itm_cd is not null
+        ORDER BY
+            link_itm_cd
+    </select>
+
+    <!--S/W 점검항목 기초데이터 관리 장비 가져오기(Select2)-->
+    <select id="getEquipSelect2" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            eqp_cd as id,
+            eqp_nm as text
+        FROM
+            SLM_EQUIPMENT
+        WHERE
+            eqp_nm LIKE '%${word}%'
+        ORDER BY
+            eqp_nm
+    </select>
+
+
+    <!--장비그룹 연계 장비그룹 기본항목 가져오기(Select2)-->
+    <select id="getEquipGrpSelect2" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+        distinct              topic_cd as id,
+                               topic_nm as text
+        FROM
+            SLM_EQUIPGRP_TOPIC
+        WHERE
+            topic_nm LIKE '%${word}%'
+        ORDER BY
+            topic_nm
+
+    </select>
+
+    <!--보고서 유형 가져오기-->
+    <select id="getRptTypeList" parameterType="map" resultType="module.vo.list.ListObjVO">
+        SELECT
+            com_cd as id,
+            cd_nm as val
+        FROM
+            COM_CODE
+        WHERE
+            jong_cd = 'OZ'
+             AND
+            com_cd NOT IN  ('ERR')
+        ORDER BY
+            cd_nm
+    </select>
+
+    <!--기본항목관리 총 개수 가져오기-->
+    <select id="getReportTopicListCnt" parameterType="map" resultType="int">
+        SELECT
+        COUNT(1)
+        FROM
+            SLM_REPORT_TOPIC
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcWord != null and srcWord != ''">
+                    AND (topic_cd LIKE '%${srcWord}%' OR topic_nm LIKE '%${srcWord}%' OR eng_nm LIKE '%${srcWord}%')
+                </if>
+                <if test="srcRptNm != null and srcRptNm != ''">
+                    AND rpt_cd = #{srcRptNm}
+                </if>
+                <if test="srcType != null and srcType != ''">
+                    AND topic_type = #{srcType}
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!--기본항목관리 가져오기-->
+    <select id="getReportTopicList" parameterType="map" resultType="slm.www.vo.security.RptItemVO">
+        SELECT
+            A0.rpt_cd as rpt_cd,
+            A0.topic_cd as topic_cd,
+            A0.topic_nm as topic_nm,
+            A0.eng_nm as eng_nm,
+            A0.topic_type as topic_type,
+            A0.use_fl as use_fl,
+            A0.init_val as init_val,
+            A0.link_itm_cd as link_itm_cd,
+            A0.mod_lock_fl as mod_lock_fl,
+            A0.rpt_print_fl as rpt_print_fl,
+            A0.mrpt_print_fl as mrpt_print_fl,
+            A0.pos as pos,
+            A1.nm as nm
+        FROM
+        (
+        SELECT
+        ROWNUM as rnum,
+        T.*
+        FROM
+        (
+        SELECT
+        *
+        FROM
+        SLM_REPORT_TOPIC
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="srcWord != null and srcWord != ''">
+                    AND (topic_cd LIKE '%${srcWord}%' OR topic_nm LIKE '%${srcWord}%' OR eng_nm LIKE '%${srcWord}%')
+                </if>
+                <if test="srcRptNm != null and srcRptNm != ''">
+                    AND rpt_cd = #{srcRptNm}
+                </if>
+                <if test="srcType != null and srcType != ''">
+                    AND topic_type = #{srcType}
+                </if>
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+        ) T
+        ) A0, SLM_REPORT_CODE A1
+        WHERE
+        A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+        AND A0.rpt_cd = A1.rpt_cd
+        ORDER BY rpt_cd ASC, POS ASC
+    </select>
+
+    <!--기본항목 상세정보 가져오기-->
+    <select id="getReportTopicInfo" parameterType="map" resultType="slm.www.vo.security.RptItemVO">
+        SELECT
+            A.topic_cd as topic_cd,
+            B.rpt_cd as rpt_cd,
+            B.nm as nm,
+            A.topic_nm as topic_nm,
+            A.eng_nm as eng_nm,
+            A.topic_type as topic_type,
+            A.use_fl as use_fl,
+            A.init_val as init_val,
+            A.topic_unit as topic_unit,
+            A.pos as pos,
+            A.link_itm_cd as link_itm_cd,
+            A.rpt_print_fl as rpt_print_fl,
+            A.mrpt_print_fl as mrpt_print_fl,
+            A.mod_lock_fl as mod_lock_fl,
+            A.remark as remark
+        FROM
+            SLM_REPORT_TOPIC A, SLM_REPORT_CODE B
+         WHERE
+            A.topic_cd = #{vo.topic_cd, jdbcType=VARCHAR}
+            AND
+            A.rpt_cd = B.rpt_cd
+
+    </select>
+
+    <!--기본항목 저장하기(Insert)-->
+    <insert id="setReportTopicAct" parameterType="map">
+        INSERT INTO SLM_REPORT_TOPIC (topic_cd, rpt_cd, topic_nm, eng_nm, topic_type, use_fl, pos, init_val, link_itm_cd, mod_lock_fl, rpt_print_fl, mrpt_print_fl, topic_unit, remark)
+        VALUES(#{vo.topic_cd, jdbcType=VARCHAR}, #{vo.rpt_cd, jdbcType=VARCHAR}, #{vo.topic_nm, jdbcType=VARCHAR}, #{vo.eng_nm, jdbcType=VARCHAR}, #{vo.topic_type, jdbcType=VARCHAR}
+               , #{vo.use_fl, jdbcType=VARCHAR}, #{vo.pos, jdbcType=VARCHAR}, #{vo.init_val, jdbcType=VARCHAR}, #{vo.link_itm_cd, jdbcType=VARCHAR}, #{vo.mod_lock_fl, jdbcType=VARCHAR}
+               , #{vo.rpt_print_fl, jdbcType=VARCHAR}, #{vo.mrpt_print_fl, jdbcType=VARCHAR}, #{vo.topic_unit, jdbcType=VARCHAR}, #{vo.remark, jdbcType=VARCHAR})
+    </insert>
+
+    <!--기본항목 저장하기(Update)-->
+    <update id="setReportTopicUpdate" parameterType="map">
+        UPDATE
+            SLM_REPORT_TOPIC
+        SET
+            topic_nm = #{vo.topic_nm,jdbcType=VARCHAR},
+            eng_nm = #{vo.eng_nm,jdbcType=VARCHAR},
+            topic_type = #{vo.topic_type,jdbcType=VARCHAR},
+            use_fl = #{vo.use_fl,jdbcType=VARCHAR},
+            pos = #{vo.pos,jdbcType=VARCHAR},
+            init_val = #{vo.init_val,jdbcType=VARCHAR},
+            link_itm_cd = #{vo.link_itm_cd,jdbcType=VARCHAR},
+            mod_lock_fl = #{vo.mod_lock_fl,jdbcType=VARCHAR},
+            rpt_print_fl = #{vo.rpt_print_fl,jdbcType=VARCHAR},
+            mrpt_print_fl = #{vo.mrpt_print_fl,jdbcType=VARCHAR},
+            topic_unit = #{vo.topic_unit,jdbcType=VARCHAR},
+            remark = #{vo.remark,jdbcType=VARCHAR}
+        WHERE
+            topic_cd = #{vo.topic_cd, jdbcType=VARCHAR}
+    </update>
+
+    <!--S/W 점검항목 기초데이터 관리 총 개수 가져오기-->
+    <select id="getSwTopicListCnt" parameterType="map" resultType="int">
+        SELECT
+        COUNT(1)
+        FROM
+            SLM_SW_TOPIC
+        WHERE
+            rpt_cd = #{rpt_cd, jdbcType=VARCHAR}
+    </select>
+
+    <!--S/W 점검항목 기초데이터 관리 가져오기-->
+    <select id="getSwTopicList" parameterType="map" resultType="slm.www.vo.security.RptItemVO">
+        SELECT
+        E.topic_nm as topic_nm,
+        D.cd_nm as cd_nm,
+        C.eqp_nm as eqp_nm,
+        B.nm as nm,
+        A0.sw_seq as sw_seq,
+        A0.rpt_cd as rpt_cd,
+        A0.topic_cd as topic_cd,
+        A0.print_sort as print_sort,
+        A0.rpt_gubun_cd as rpt_gubun_cd,
+        A0.eqp_cd as eqp_cd,
+        A0.init_val as init_val,
+        A0.use_fl as use_fl
+        FROM
+        (
+        SELECT
+        ROWNUM as rnum,
+        T.*
+        FROM
+        (
+        SELECT
+        *
+        FROM
+        SLM_SW_TOPIC
+        WHERE
+            rpt_cd = #{rpt_cd, jdbcType=VARCHAR}
+        ) T
+        ) A0,  SLM_REPORT_CODE B, SLM_EQUIPMENT C, COM_CODE D, SLM_REPORT_TOPIC E
+        WHERE
+        A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+        AND A0.rpt_cd = B.rpt_cd AND A0.eqp_cd = C.eqp_cd AND  A0.rpt_gubun_cd = D.com_cd AND A0.topic_cd = E.topic_cd
+        ORDER BY print_sort ASC
+    </select>
+
+    <!--S/W 점검항목 기초데이터 관리 저장하기(Insert)-->
+    <insert id="setSwTopicAct" parameterType="map">
+        INSERT INTO SLM_SW_TOPIC (sw_seq, rpt_cd, topic_cd, print_sort, rpt_gubun_cd, eqp_cd, init_val, use_fl)
+        VALUES(
+                (SELECT NVL(max(sw_seq),0) + 1  FROM SLM_SW_TOPIC),
+                #{vo.rpt_cd, jdbcType=VARCHAR},
+                #{vo.topic_cd, jdbcType=VARCHAR},
+                #{vo.print_sort, jdbcType=VARCHAR},
+                #{vo.cd_nm, jdbcType=VARCHAR},
+                #{vo.eqp_nm, jdbcType=VARCHAR,},
+                #{vo.init_val, jdbcType=VARCHAR},
+                #{vo.use_fl, jdbcType=VARCHAR}
+                )
+    </insert>
+
+    <!--S/W 점검항목 기초데이터 관리 저장하기(Update)-->
+    <update id="setSwTopicUpdate" parameterType="map">
+        UPDATE
+            SLM_SW_TOPIC
+        SET
+            print_sort = #{vo.print_sort, jdbcType=VARCHAR},
+            rpt_gubun_cd = #{vo.cd_nm, jdbcType=VARCHAR},
+            eqp_cd = #{vo.eqp_nm, jdbcType=VARCHAR},
+            init_val = #{vo.init_val, jdbcType=VARCHAR},
+            use_fl = #{vo.use_fl, jdbcType=VARCHAR}
+        WHERE
+            sw_seq = #{vo.sw_seq, jdbcType=VARCHAR}
+    </update>
+
+    <!--장비그룹 연계 총 개수 가져오기-->
+    <select id="getEquipTopicListCnt" parameterType="map" resultType="int">
+        SELECT
+        COUNT(1)
+        FROM
+            SLM_TOPIC_MAP
+        WHERE
+            rpt_topic_cd = #{rpt_topic_cd, jdbcType=VARCHAR}
+    </select>
+
+    <!--장비그룹 연게 가져오기-->
+    <select id="getEquipTopicList" parameterType="map" resultType="slm.www.vo.security.RptItemVO">
+      SELECT
+          A0.rpt_topic_cd as rpt_topic_cd,
+          B.topic_nm as topic_nm,
+          B.topic_cd as topic_cd,
+          B.topic_cd as prev_topic_cd,
+          A0.grp_topic_cd as grp_topic_cd
+        FROM
+              (
+                SELECT
+                    ROWNUM as rnum,
+                    T.*
+                FROM
+                      (
+                        SELECT
+                            rpt_topic_cd,
+                            grp_topic_cd
+                        FROM
+                            SLM_TOPIC_MAP
+                        WHERE
+                            rpt_topic_cd = #{rpt_topic_cd, jdbcType=VARCHAR}
+                      ) T
+              ) A0 , SLM_EQUIPGRP_TOPIC B
+        WHERE
+              A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+        AND
+              A0.grp_topic_cd = B.topic_cd
+        ORDER BY
+            grp_topic_cd ASC
+    </select>
+
+    <!--장비그룹 연계 저장하기(Insert)-->
+    <insert id="setEquipTopicAct" parameterType="map">
+        INSERT INTO SLM_TOPIC_MAP (rpt_topic_cd, grp_topic_cd)
+        VALUES(#{vo.rpt_topic_cd, jdbcType=VARCHAR}, #{vo.topic_nm, jdbcType=VARCHAR})
+    </insert>
+
+    <!--장비그룹 연계 저장하기(Update)-->
+    <update id="setEquipTopicUpdate" parameterType="map">
+        UPDATE
+            SLM_TOPIC_MAP
+        SET
+            grp_topic_cd = #{vo.topic_nm, jdbcType=VARCHAR}
+        WHERE
+            rpt_topic_cd = #{vo.rpt_topic_cd ,jdbcType=VARCHAR}
+            and
+             grp_topic_cd = #{vo.prev_topic_cd, jdbcType=VARCHAR}
+
+    </update>
+
+    <!--장비그룹 연계 삭제하기(Delete)-->
+    <delete id="setEquipTopicDel" parameterType="map">
+        DELETE
+        FROM
+            SLM_TOPIC_MAP
+        WHERE
+            rpt_topic_cd = #{vo.rpt_topic_cd, jdbcType=VARCHAR}
+            AND
+            grp_topic_cd = #{vo.topic_cd, jdbcType=VARCHAR}
+    </delete>
+
+
+
+</mapper>

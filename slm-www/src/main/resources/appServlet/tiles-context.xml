@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE tiles-definitions PUBLIC
+		"-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN"
+		"http://tiles.apache.org/dtds/tiles-config_3_0.dtd">
+
+<!-- 
+	[Tiles 설정]
+	
+	기본 설정 : http://tiles.apache.org/framework/tutorial/basic/pages.html
+	Tiles Wildcard 설정 : http://tiles.apache.org/framework/tutorial/advanced/wildcard.html
+	ex : */*/*/* - > {1} / {2} / {3} / {4} (최대 4개 까지)
+-->
+<tiles-definitions>
+
+	<!-- Blank layout -->
+	<definition name="blank.common.require" template="/WEB-INF/views/master/master-pattern-require.jsp">
+		<put-attribute name="title" value="파주시 SLM 시스템" />
+		<put-attribute name="header" value="/WEB-INF/views/master/master-header.jsp" />
+		<put-list-attribute name="jsPlugin">
+		</put-list-attribute>
+	</definition>
+
+	<!-- 기본양식 Layout -->
+	<definition name="base.common.require" extends="blank.common.require">
+		<put-attribute name="leftmenu" value="1" />
+		<put-list-attribute name="cssPlugin">
+			<add-attribute value="/assets/plugins/gritter/css/jquery.gritter.css" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 기본양식 jqgrid 사용하는 Layout -->
+	<definition name="basegrid.common.require" extends="blank.common.require">
+		<put-attribute name="leftmenu" value="1" />
+		<put-list-attribute name="cssPlugin">
+			<add-attribute value="/plugins/jqGrid-5.0.0/css/ui.jqgrid-bootstrap.css" />
+			<add-attribute value="/plugins/darkhand-0.1.2/css/jqgrid.custom.css" />
+			<add-attribute value="/assets/plugins/gritter/css/jquery.gritter.css" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 인증 관련 -->
+	<definition name="login/*" template="/WEB-INF/views/master/master-blank.jsp">
+		<put-attribute name="title" value="파주시 SLM 시스템" />
+		<put-attribute name="body" value="/WEB-INF/views/login/{1}.jsp" type="template"/>
+		<put-list-attribute name="cssPlugin">
+			<add-attribute value="/assets/plugins/gritter/css/jquery.gritter.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin">
+			<add-attribute value="/login/{1}.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 시스템관리 > 사용자계정관리 -->
+	<definition name="security/user" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/security/user.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/jquery-file-upload/css/jquery.fileupload.css" />
+			<add-attribute value="/assets/plugins/jquery-file-upload/css/jquery.fileupload-ui.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/security/user.js" />
+		</put-list-attribute>
+	</definition>
+
+
+
+	<!-- 시스템관리 > NMS 연계 관리-->
+	<definition name="security/link" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/security/link.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker3.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/security/link.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 시스템관리 > 기본항목관리-->
+	<definition name="security/rptitem" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/security/rptitem.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/select2/dist/css/select2.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/security/rptitem.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 시스템관리 > 보고서코드관리-->
+	<definition name="security/rptcode" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/security/rptcode.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/select2/dist/css/select2.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/security/rptcode.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 시스템관리 > 장비그룹 기본항목 관리-->
+	<definition name="security/equipgitem" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/security/equipgitem.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/select2/dist/css/select2.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/security/equipgitem.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 시스템관리 > 그 외 메뉴 -->
+	<definition name="security/*" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/security/{1}.jsp" type="template" />
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/security/{1}.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- SLA보고서 > 보고서 관리 -->
+	<definition name="rsla/report" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/rsla/report.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker3.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/rsla/report.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- SLA보고서 > 항목평가기준 -->
+	<definition name="rsla/reference" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/rsla/reference.jsp" type="template" />
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/rsla/reference.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 일일보고서 > 일일점검현황 -->
+	<definition name="rday/inspect" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/rday/inspect.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/jquery-file-upload/css/jquery.fileupload.css" />
+			<add-attribute value="/assets/plugins/jquery-file-upload/css/jquery.fileupload-ui.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker3.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/rday/inspect.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 일일보고서 > 장애내역 -->
+	<definition name="rday/troubleshoot" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/rday/troubleshoot.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/bootstrap-eonasdan-datetimepicker/build/css/bootstrap-datetimepicker.min.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker3.css" />
+			<add-attribute value="/assets/plugins/switchery/switchery.min.css"  />
+			<add-attribute value="/assets/plugins/select2/dist/css/select2.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/rday/troubleshoot.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 일일보고서 > 요청사항 -->
+	<definition name="rday/request" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/rday/request.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/bootstrap-eonasdan-datetimepicker/build/css/bootstrap-datetimepicker.min.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker3.css" />
+			<add-attribute value="/assets/plugins/switchery/switchery.min.css"  />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/rday/request.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 일일보고서 > 일일작업내역 -->
+	<definition name="rday/work" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/rday/work.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/jquery-file-upload/css/jquery.fileupload.css" />
+			<add-attribute value="/assets/plugins/jquery-file-upload/css/jquery.fileupload-ui.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker3.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/rday/work.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 일일보고서 > 전체(*) -->
+	<definition name="rday/*" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/rday/{1}.jsp" type="template" />
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/rday/{1}.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 월간보고서 월간주요현황-->
+	<definition name="rmon/report" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/rmon/report.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/bootstrap-eonasdan-datetimepicker/build/css/bootstrap-datetimepicker.min.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker3.css" />
+			<add-attribute value="/assets/plugins/switchery/switchery.min.css"  />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/rmon/report.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 월간보고서 월간주요현황-->
+	<definition name="dashboard/summary" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/dashboard/summary.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/bootstrap-eonasdan-datetimepicker/build/css/bootstrap-datetimepicker.min.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker3.css" />
+			<add-attribute value="/assets/plugins/switchery/switchery.min.css"  />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/dashboard/summary.js" />
+		</put-list-attribute>
+	</definition>
+
+	
+	<!-- 개인정보수정 -->
+	<definition name="onepage/myinfo" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/onepage/myinfo.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/jquery-file-upload/css/jquery.fileupload.css" />
+			<add-attribute value="/assets/plugins/jquery-file-upload/css/jquery.fileupload-ui.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/onepage/myinfo.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 운영대상 > 장비관리 -->
+	<definition name="dm/equip" extends="basegrid.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/dm/equip.jsp" type="template" />
+		<put-list-attribute name="cssPlugin" inherit="true">
+			<add-attribute value="/assets/plugins/jquery-file-upload/css/jquery.fileupload.css" />
+			<add-attribute value="/assets/plugins/jquery-file-upload/css/jquery.fileupload-ui.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker.css" />
+			<add-attribute value="/assets/plugins/bootstrap-datepicker/css/datepicker3.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/dm/equip.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!-- 보고서 관련 -->
+	<definition name="report/*" template="/WEB-INF/views/report/preview.jsp" />
+
+	<!-- 에러 관련 -->
+	<definition name="errors" template="/WEB-INF/views/master/master-blank.jsp">
+		<put-attribute name="title" value="상수관망관리시스템" />
+		<put-attribute name="body" value="/WEB-INF/views/errors.jsp" type="template"/>
+		<put-list-attribute name="cssPlugin">
+			<add-attribute value="/assets/plugins/gritter/css/jquery.gritter.css" />
+		</put-list-attribute>
+		<put-list-attribute name="jsPlugin">
+			<add-attribute value="/errors.js" />
+		</put-list-attribute>
+	</definition>
+
+	<!--전체-->
+	<definition name="*/*" extends="base.common.require">
+		<put-attribute name="body" value="/WEB-INF/views/{1}/{2}.jsp" type="template" />
+		<put-list-attribute name="jsPlugin" inherit="true">
+			<add-attribute value="/{1}/{2}.js" />
+		</put-list-attribute>
+	</definition>
+</tiles-definitions>

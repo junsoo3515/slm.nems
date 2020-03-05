@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.rday.WorkDao">
+
+    <select id="getRdayWorkListCnt" parameterType="map" resultType="int">
+        SELECT
+        COUNT(1)
+        FROM
+        SLM_MNG_RECORD
+
+        <where>
+            <if test="vo.isSearch == true">
+                <if test="sDate != null and sDate != ''">
+                    AND occur_dt &gt;= #{sDate}
+                </if>
+                <if test="eDate != null and eDate != ''">
+                    AND occur_dt &lt;= #{eDate}
+                </if>
+            </if>
+        </where>
+
+
+    </select>
+    <!--일일 작업내역 가져오기-->
+    <select id="getRdayWorkList" parameterType="map" resultType="slm.www.vo.rday.WorkVO">
+        SELECT
+           *
+        FROM
+            (
+                SELECT
+                ROWNUM as rnum,
+                T.*
+                FROM
+                        (
+                        SELECT
+                            rec_seq ,
+                            title,
+                            ( SUBSTR(OCCUR_DT,1,4)||'-'||SUBSTR(OCCUR_DT,5,2)||'-'||SUBSTR(OCCUR_DT,7,2) ) as occur_dt
+                        FROM
+                            SLM_MNG_RECORD
+
+                        <where>
+                            <if test="vo.isSearch == true">
+                                <if test="sDate != null and sDate != ''">
+                                    AND occur_dt &gt;= #{sDate}
+                                </if>
+                                <if test="eDate != null and eDate != ''">
+                                    AND occur_dt &lt;= #{eDate}
+                                </if>
+                            </if>
+                        </where>
+
+                        ORDER BY
+                        rec_seq desc
+                 ) T
+             ) A0
+
+        WHERE
+            A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+
+
+    </select>
+
+    <!-- 장애처리 상세정보 가져오기 -->
+    <select id="getRdayWorkData" parameterType="map" resultType="slm.www.vo.rday.WorkVO">
+        SELECT
+        rec_seq,
+        title,
+        ( SUBSTR(OCCUR_DT,1,4)||'-'||SUBSTR(OCCUR_DT,5,2)||'-'||SUBSTR(OCCUR_DT,7,2) ) as occur_dt,
+        op_issue,
+        req_issue,
+        policy_issue
+        FROM
+          SLM_MNG_RECORD
+        where
+          rec_seq = #{key}
+    </select>
+
+
+    <!-- 일일작업내역정보 Insert -->
+    <insert id="setWorkInsert" parameterType="slm.www.vo.rday.WorkVO">
+        INSERT INTO SLM_MNG_RECORD
+        (
+            rec_seq,
+            title,
+            occur_dt,
+            op_issue,
+            req_issue,
+            policy_issue,
+            reg_dts
+        ) VALUES
+        (
+            (select NVL(MAX(rec_seq), 0) + 1 from SLM_MNG_RECORD),
+            #{vo.title},
+            #{vo.occur_dt},
+            #{vo.op_issue},
+            #{vo.req_issue},
+            #{vo.policy_issue},
+            sysdate
+        )
+    </insert>
+
+    <!-- 일일작업내역정보 Update -->
+    <update id="setWorkUpdate" parameterType="slm.www.vo.rday.WorkVO">
+        UPDATE
+            SLM_MNG_RECORD
+        SET
+            title = #{vo.title},
+            occur_dt = #{vo.occur_dt},
+            op_issue = #{vo.op_issue},
+            req_issue = #{vo.req_issue},
+            policy_issue = #{vo.policy_issue}
+        WHERE
+            rec_seq = #{vo.rec_seq}
+    </update>
+
+    <!-- 일일작업내역정보 Delete -->
+    <delete  id="setWorkDelete" parameterType="slm.www.vo.rday.WorkVO">
+        DELETE FROM
+          SLM_MNG_RECORD
+        WHERE
+          rec_seq= #{vo.rec_seq}
+    </delete>
+</mapper>

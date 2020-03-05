@@ -1,0 +1,945 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace는 dao의 패키지명과 클래스명이 일치해야 함. -->
+<mapper namespace="slm.www.dao.rday.InspectDao">
+
+    <!-- 일일점검현황 총 개수 가져오기 -->
+    <select id="getReportListCnt" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            SLM_DA_REPORT T0
+
+        <where>
+            AND T0.rpt_gubun_cd = #{gubunKey}
+
+            <if test="vo.isSearch == true">
+                <if test="sDate != null and sDate != ''">
+                    AND T0.brief_dt &gt;= #{sDate}
+                </if>
+                <if test="eDate != null and eDate != ''">
+                    AND T0.brief_dt &lt;= #{eDate}
+                </if>
+
+                <if test="vo.defWhere != null">
+                    AND ${vo.defWhere}
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <!-- 일일점검현황 목록 가져오기 -->
+    <select id="getReportList" parameterType="map" resultType="slm.www.vo.rday.DaReportVO">
+        SELECT
+            *
+        FROM
+        (
+            SELECT
+                ROWNUM as rnum,
+                T.*
+            FROM
+            (
+                SELECT
+                    T0.da_seq,
+                    SUBSTR(T0.brief_dt, 1, 4) || '-' || SUBSTR(T0.brief_dt, 5, 2) || '-' || SUBSTR(T0.brief_dt, 7, 2) brief_dt,
+                    (SELECT cd_nm FROM COM_CODE WHERE com_cd = T0.rpt_gubun_cd AND jong_cd = 'OZ' AND ROWNUM = 1) rpt_gubun_nm,
+                    T0.data_copy_fl,
+                    T0.fin_fl,
+                    TRUNC(T0.reg_dts - TO_DATE('19700101', 'yyyymmdd')) * 60 * 60 * 24 - (9 * 60 * 60) + TO_CHAR(T0.reg_dts, 'sssss') reg_dts_ux
+                FROM
+                    SLM_DA_REPORT T0
+
+                <where>
+                    AND T0.rpt_gubun_cd = #{gubunKey}
+
+                    <if test="vo.isSearch == true">
+                        <if test="sDate != null and sDate != ''">
+                            AND T0.brief_dt &gt;= #{sDate}
+                        </if>
+                        <if test="eDate != null and eDate != ''">
+                            AND T0.brief_dt &lt;= #{eDate}
+                        </if>
+                        <if test="vo.defWhere != null">
+                            AND ${vo.defWhere}
+                        </if>
+                    </if>
+                </where>
+
+                <trim prefix="ORDER BY" prefixOverrides=",">
+                    <choose>
+                        <when test="vo.sortID != null and vo.sortID != ''">
+                            , ${vo.sortID} ${vo.sortDesc}
+                        </when>
+                        <otherwise>
+                            , T0.brief_dt DESC
+                        </otherwise>
+                    </choose>
+                </trim>
+            ) T
+        ) A0
+
+        WHERE
+            A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+    </select>
+
+    <!-- 일일점검 데이터 상세정보 가져오기 -->
+    <select id="getReportData" parameterType="map" resultType="slm.www.vo.rday.DaReportVO">
+        SELECT
+            *
+        FROM
+            SLM_DA_REPORT
+        WHERE
+            da_seq = #{key, jdbcType=NUMERIC}
+            AND ROWNUM = 1
+    </select>
+
+    <!-- 점검현황 중복확인 -->
+    <select id="getReportChk" parameterType="map" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM
+            SLM_DA_REPORT
+        WHERE
+            rpt_gubun_cd = #{gubunKey, jdbcType=VARCHAR}
+            AND brief_dt = #{briefDate, jdbcType=VARCHAR}
+    </select>
+
+    <!-- 점검현황 중 일 마감 처리된 마지막 보고서 일련번호 가져오기 -->
+    <select id="getReportLastFinSeq" resultType="long">
+        SELECT
+            /*+INDEX_DESC(SLM_DA_REPORT SLM_DA_REPORT_IX01)*/ da_seq
+        FROM
+            SLM_DA_REPORT
+        WHERE
+            fin_fl = 'Y'
+            AND rpt_gubun_cd = 'DAY'
+
+            <if test="briefDate != null and briefDate != ''">
+                AND brief_dt &lt; #{briefDate, jdbcType=VARCHAR}
+            </if>
+
+            AND ROWNUM = 1
+    </select>
+
+    <!-- 점검현황 insert -->
+    <insert id="setReportInsert" parameterType="map">
+        INSERT INTO
+            SLM_DA_REPORT(da_seq, brief_dt, rpt_gubun_cd, start_dt, end_dt, pfmc, plan, rpt_file, data_copy_fl, fin_fl, reg_dts)
+        VALUES (
+            #{vo.da_seq, jdbcType=NUMERIC},
+            #{vo.brief_dt, jdbcType=VARCHAR},
+            #{vo.rpt_gubun_cd, jdbcType=VARCHAR},
+            #{vo.start_dt, jdbcType=VARCHAR},
+            #{vo.end_dt, jdbcType=VARCHAR},
+            #{vo.pfmc, jdbcType=VARCHAR},
+            #{vo.plan, jdbcType=VARCHAR},
+            ( SELECT etc FROM COM_CODE WHERE jong_cd = 'OZ' AND com_cd = 'DAY' AND use_fl = 'Y' AND ROWNUM = 1 ),
+            #{vo.data_copy_fl, jdbcType=VARCHAR},
+            #{vo.fin_fl, jdbcType=VARCHAR},
+            SYSDATE
+        )
+    </insert>
+
+    <!-- 점검현황 Update -->
+    <update id="setReportUpdate" parameterType="map">
+        UPDATE
+            SLM_DA_REPORT
+
+        <set>
+            fin_fl = #{vo.fin_fl, jdbcType=VARCHAR}
+        </set>
+
+        WHERE
+            da_seq = #{vo.da_seq, jdbcType=NUMERIC}
+    </update>
+
+    <!-- 보고서-장비 매핑 생성 Insert -->
+    <insert id="setReportMapInsert" parameterType="map">
+        INSERT INTO
+            SLM_DA_REPORTMAP (da_seq, rpt_cd, eqp_cd, sort_seq)
+        SELECT
+            #{key, jdbcType=NUMERIC} da_seq,
+            T0.*
+        FROM
+            SLM_EQUIPMENT T, SLM_REPORT_EQUIPMAP T0, SLM_REPORT_CODE T1
+        WHERE
+            T.eqp_cd = T0.eqp_cd
+            AND T0.rpt_cd = T1.rpt_cd
+            AND T.use_fl = 'Y'
+            AND T1.rpt_depth = '4'
+            AND T1.use_fl = 'Y'
+        ORDER BY
+            T0.rpt_cd, T0.eqp_cd, T0.sort_seq
+    </insert>
+
+    <!-- 일/월 보고서 요약 생성 Insert -->
+    <insert id="setReportSummaryInsert" parameterType="map">
+        INSERT INTO
+            SLM_DA_REPORTSUM (summ_seq, da_seq, rpt_cd, res_fl, cnt_all, cnt_err, cnt_fin, err_time, hold_time, add_cont, cnt_inn, cnt_out, inspect_nm, confirm_nm, confirm_dt, itm_all_cnt, itm_abnormal_cnt)
+        SELECT
+            #{seq, jdbcType=NUMERIC} + ROWNUM summ_seq,
+            #{key, jdbcType=NUMERIC} da_seq,
+            T0.rpt_cd,
+            T0.res_fl,
+            (CASE
+                WHEN T0.sw_type_fl = 'N' THEN
+                    (SELECT COUNT(1) FROM SLM_DA_REPORTMAP WHERE rpt_cd = T0.rpt_cd AND da_seq = #{key, jdbcType=NUMERIC})
+                ELSE
+                    (
+                        SELECT
+                            COUNT(1)
+                        FROM
+                            SLM_DA_REPORTMAP ST, (SELECT rpt_cd, eqp_cd FROM SLM_SW_TOPIC WHERE use_fl = 'Y' GROUP BY rpt_cd, eqp_cd) ST0, SLM_EQUIPMENT ST1
+                        WHERE
+                            ST.rpt_cd = ST0.rpt_cd
+                            AND ST.eqp_cd = ST0.eqp_cd
+                            AND ST0.eqp_cd = ST1.eqp_cd
+
+                            AND ST.da_seq = #{key, jdbcType=NUMERIC}
+                            AND ST.rpt_cd = T0.rpt_cd
+                            AND ST1.use_fl = 'Y'
+                    )
+            END) cnt_all,
+            NVL(T1.cnt_err, 0),
+            NVL(T1.cnt_fin, 0),
+            NVL(T1.err_time, 0),
+            NVL(T1.hold_time, 0),
+            T1.add_cont,
+            NVL(T1.cnt_inn, 0),
+            NVL(T1.cnt_out, 0),
+            T0.inspector,
+            T0.confirmor,
+            SYSDATE,
+            0,
+            0
+        FROM
+            SLM_REPORT_CODE T0
+        LEFT JOIN
+        (
+            SELECT
+                T.rpt_cd,
+                COUNT(1) cnt_err,
+                SUM(CASE WHEN fin_fl = 'Y' THEN 1 ELSE 0 END) cnt_fin,
+                SUM(CASE WHEN type_cd = 'A' THEN 1 ELSE 0 END) cnt_inn,
+                SUM(CASE WHEN type_cd = 'B' THEN 1 ELSE 0 END) cnt_out,
+                TO_NUMBER(TRUNC(MOD(SUM(err_time), 1) * 24) || '.' || TRUNC(MOD(SUM(err_time) * 24, 1) * 60)) err_time,
+                TO_NUMBER(TRUNC(MOD(SUM(hold_time), 1) * 24) || '.' || TRUNC(MOD(SUM(hold_time) * 24, 1) * 60)) hold_time,
+                LISTAGG(summ_cont, ',') WITHIN GROUP(ORDER BY ROWNUM) add_cont
+            FROM
+            (
+                SELECT
+                    ST1.rpt_cd,
+                    ST0.dis_seq,
+                    ST0.eqp_cd,
+                    ST0.type_cd,
+                    ST0.fin_fl,
+                    TO_DATE(ST0.mea_fin_dt, 'YYYYMMDDHH24MISS')-TO_DATE(ST0.occur_dt, 'YYYYMMDDHH24MISS') err_time,
+                    TO_DATE(ST0.sv_start_dt, 'YYYYMMDDHH24MISS')-TO_DATE(ST0.sv_stop_dt, 'YYYYMMDDHH24MISS') hold_time,
+                    ST0.summ_cont
+                FROM
+                    SLM_DISORDER ST0, SLM_DA_REPORTMAP ST1
+                WHERE
+                    ST0.eqp_cd = ST1.eqp_cd
+                    AND ST1.da_seq = #{key, jdbcType=NUMERIC}
+                    AND ST0.use_fl = 'Y'
+                    AND ST0.occur_dt BETWEEN '${sDate}000000' AND '${eDate}235959'
+            ) T
+            GROUP BY
+                T.rpt_cd
+        ) T1
+        ON
+            T0.rpt_cd = T1.rpt_cd
+        WHERE
+            T0.rpt_depth = '4'
+            AND T0.use_fl = 'Y'
+        START WITH
+            T0.rpt_cd = #{firstReportCD, jdbcType=VARCHAR}
+        CONNECT BY PRIOR
+            T0.rpt_cd = T0.hig_rpt_cd
+    </insert>
+
+    <!-- 장비별 유지보수 입력 초기 값 Insert -->
+    <insert id="setReportEquipDataInsert" parameterType="map">
+        INSERT INTO
+            SLM_EQUIPMAIN_DATA (data_seq, eqp_cd, topic_cd, da_seq, rpt_cd, inp_val, occur_dt, reg_dts)
+        SELECT
+            #{seq, jdbcType=NUMERIC} + ROWNUM data_seq,
+            T1.eqp_cd,
+            T0.topic_cd,
+            T1.da_seq,
+            T1.rpt_cd,
+            (CASE WHEN T0.init_val IS NOT NULL THEN T0.init_val ELSE (CASE WHEN T0.topic_type = 'select' THEN 'Y' ELSE T0.init_val END) END) inp_val,
+            #{briefDate, jdbcType=VARCHAR} occur_dt,
+            SYSDATE
+        FROM
+            SLM_REPORT_TOPIC T0, SLM_DA_REPORTMAP T1
+        WHERE
+            T0.rpt_cd = T1.rpt_cd
+            AND T1.da_seq = #{key, jdbcType=NUMERIC}
+            AND T0.use_fl = 'Y'
+    </insert>
+
+    <!-- 기본항목 매핑 테이블에 있는 자료 기본 값 일괄 Update -->
+    <update id="setReportEquipDataMergeUpdate" parameterType="map">
+        MERGE INTO SLM_EQUIPMAIN_DATA m
+        USING (
+            SELECT
+                T0.data_seq, T.input_val
+            FROM
+                SLM_EQUIPGRP_DATA T, SLM_EQUIPMAIN_DATA T0, SLM_TOPIC_MAP T1
+            WHERE
+                T.eqp_cd = T0.eqp_cd
+                AND T0.topic_cd = T1.rpt_topic_cd
+                AND T.topic_cd = T1.grp_topic_cd
+                AND T0.da_seq = #{key, jdbcType=NUMERIC}
+        ) e
+        ON ( m.data_seq = e.data_seq )
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                inp_val = e.input_val
+    </update>
+
+    <!-- 기존 일마감 처리된 기초데이터 기준으로 값 일괄 Update -->
+    <update id="setReportEquipDataCopyMergeUpdate" parameterType="map">
+        MERGE INTO SLM_EQUIPMAIN_DATA m
+        USING (
+            SELECT
+                #{key, jdbcType=NUMERIC} da_seq, eqp_cd, topic_cd, rpt_cd, inp_val
+            FROM
+                SLM_EQUIPMAIN_DATA T0
+            WHERE
+                T0.da_seq = #{oldKey, jdbcType=NUMERIC}
+                AND inp_val IS NOT NULL
+        ) e
+        ON (
+            m.da_seq = e.da_seq
+            AND m.eqp_cd = e.eqp_cd
+            AND m.topic_cd = e.topic_cd
+            AND m.rpt_cd = e.rpt_cd
+        )
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                inp_val = e.inp_val
+    </update>
+
+    <!-- 장애처리에 있는 요약 항목 'issue' 기본 값 일괄 Update -->
+    <update id="setReportEquipDataIssueMergeUpdate" parameterType="map">
+        MERGE INTO SLM_EQUIPMAIN_DATA m
+        USING (
+            SELECT
+                AT0.data_seq,
+                LISTAGG(AT1.summ_cont, ',') WITHIN GROUP(ORDER BY ROWNUM) add_cont
+            FROM
+            (
+                SELECT
+                    T0.data_seq, T0.eqp_cd, T0.inp_val
+                FROM
+                    SLM_EQUIPMAIN_DATA T0, SLM_REPORT_TOPIC T1
+                WHERE
+                    T0.topic_cd = T1.topic_cd
+                    AND T0.da_seq = #{key, jdbcType=NUMERIC}
+                    AND T1.use_fl = 'Y'
+                    AND T1.eng_nm = 'issue'
+            ) AT0,
+            (
+                SELECT
+                    eqp_cd, summ_cont
+                FROM
+                    SLM_DISORDER
+                WHERE
+                    occur_dt BETWEEN '${sDate}000000' AND '${eDate}235959'
+                    AND use_fl = 'Y'
+            ) AT1
+            WHERE
+                AT0.eqp_cd = AT1.eqp_cd
+            GROUP BY
+                AT0.data_seq
+        ) e
+        ON ( m.data_seq = e.data_seq )
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                inp_val = e.add_cont
+    </update>
+
+    <!-- 외부시스템 연동 데이터 일괄 Update -->
+    <update id="setReportEquipDataLinkSystemMergeUpdate" parameterType="map">
+        MERGE INTO SLM_EQUIPMAIN_DATA m
+        USING (
+            SELECT
+                TS2.data_seq, TS0.avg_val
+            FROM
+            (
+                SELECT
+                    TA0.eqp_cd, LOWER(TA2.itm_cd) itm_cd, TA2.avg_val
+                FROM
+                (
+                    SELECT
+                        T0.eqp_cd, T1.input_val, T2.topic_cd
+                    FROM
+                        SLM_EQUIPMENT T0, SLM_EQUIPGRP_DATA T1, SLM_EQUIPGRP_TOPIC T2
+                    WHERE
+                        T0.eqp_cd = T1.eqp_cd
+                        AND T1.topic_cd = T2.topic_cd
+                        AND T0.use_fl = 'Y'
+                        AND T2.use_fl = 'Y'
+                        AND T2.eng_nm = 'host_name'
+                ) TA0, LINK_SYSTEM_CODE TA1, LINK_SYSTEM_DATA TA2
+                WHERE
+                    TA0.input_val = TA1.host_cd
+                    AND TA1.host_cd = TA2.host_cd
+                    AND TA2.col_dt = #{srcDate, jdbcType=VARCHAR}
+            ) TS0, SLM_REPORT_TOPIC TS1, SLM_EQUIPMAIN_DATA TS2
+            WHERE
+                TS0.itm_cd = TS1.link_itm_cd
+                AND TS1.rpt_cd = TS2.rpt_cd
+                AND TS1.topic_cd = TS2.topic_cd
+                AND TS0.eqp_cd = TS2.eqp_cd
+                AND TS2.da_seq = #{key, jdbcType=NUMERIC}
+                AND TS1.use_fl = 'Y'
+        ) e
+        ON ( m.data_seq = e.data_seq )
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                inp_val = e.avg_val
+    </update>
+
+    <!-- 나머지 eng_nm = 'name'인 항목 장비 명칭 일괄 Update -->
+    <update id="setReportEquipDataEtcMergeUpdate" parameterType="map">
+        MERGE INTO SLM_EQUIPMAIN_DATA m
+        USING (
+            SELECT
+                T0.data_seq, T.eqp_nm
+            FROM
+                SLM_EQUIPMENT T, SLM_EQUIPMAIN_DATA T0, SLM_REPORT_TOPIC T1
+            WHERE
+                T.eqp_cd = T0.eqp_cd
+                AND T0.rpt_cd = T1.rpt_cd
+                AND T0.topic_cd = T1.topic_cd
+                AND T0.da_seq = #{key, jdbcType=NUMERIC}
+                AND T1.use_fl = 'Y'
+                AND T1.eng_nm = 'name'
+                AND T0.inp_val IS NULL
+        ) e
+        ON ( m.data_seq = e.data_seq )
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                inp_val = e.eqp_nm
+    </update>
+
+    <!-- S/W 유지보수 입력 초기 값 Insert -->
+    <insert id="setReportSoftWareDataInsert" parameterType="map">
+        INSERT INTO
+            SLM_SWMAIN_DATA(data_seq, eqp_cd, eqp_grp_cd, topic_cd, da_seq, rpt_cd, rpt_gubun_cd, topic_grp_seq, inp_val, occur_dt, reg_dts)
+        SELECT
+            #{seq, jdbcType=NUMERIC} + ROW_NUMBER() OVER (ORDER BY T2.rpt_cd, T2.da_seq, T1.eqp_cd, T1.print_sort, T0.topic_cd) data_seq,
+            T1.eqp_cd,
+            (SELECT eqp_grp_cd FROM SLM_EQUIPMENT WHERE eqp_cd = T1.eqp_cd AND ROWNUM = 1) eqp_grp_cd,
+            T0.topic_cd,
+            T2.da_seq,
+            T2.rpt_cd,
+            T1.rpt_gubun_cd,
+            T1.print_sort,
+            T1.init_val inp_val,
+            #{briefDate, jdbcType=VARCHAR} occur_dt,
+            SYSDATE
+        FROM
+            SLM_REPORT_TOPIC T0, SLM_SW_TOPIC T1, SLM_DA_REPORTMAP T2
+        WHERE
+            T0.rpt_cd = T1.rpt_cd
+            AND T0.topic_cd = T1.topic_cd
+            AND T1.rpt_cd = T2.rpt_cd
+            AND T1.eqp_cd = T2.eqp_cd
+            AND T2.da_seq = #{key, jdbcType=NUMERIC}
+            AND T0.use_fl = 'Y'
+            AND T1.rpt_gubun_cd = 'DAY'
+            AND T1.use_fl = 'Y'
+    </insert>
+
+    <!-- 점검현황 Delete -->
+    <delete id="setReportDelete" parameterType="map">
+        DELETE FROM
+            SLM_DA_REPORT
+        WHERE
+            da_seq = #{key, jdbcType=NUMERIC}
+    </delete>
+
+    <!-- 보고서-장비 매핑 Delete -->
+    <delete id="setReportMapDelete" parameterType="map">
+        DELETE FROM
+            SLM_DA_REPORTMAP
+        WHERE
+            da_seq = #{key, jdbcType=NUMERIC}
+    </delete>
+
+    <!-- 일/월 보고서 요약 Delete -->
+    <delete id="setReportSummaryDelete" parameterType="map">
+        DELETE FROM
+            SLM_DA_REPORTSUM
+        WHERE
+            da_seq = #{key, jdbcType=NUMERIC}
+    </delete>
+
+    <!-- 장비별 유지보수 입력 값 Delete -->
+    <delete id="setReportEquipDataDelete" parameterType="map">
+        DELETE FROM
+            SLM_EQUIPMAIN_DATA
+        WHERE
+            da_seq = #{key, jdbcType=NUMERIC}
+    </delete>
+
+    <!-- S/W 유지보수 입력 값 Delete -->
+    <delete id="setReportSoftWareDataDelete" parameterType="map">
+        DELETE FROM
+            SLM_SWMAIN_DATA
+        WHERE
+            da_seq = #{key, jdbcType=NUMERIC}
+    </delete>
+
+    <!-- 점검요약정보 목록 가져오기 -->
+    <select id="getReportSummaryList" parameterType="map" resultType="slm.www.vo.rday.DaReportSummaryVO">
+        SELECT
+            T0.summ_seq,
+            (SELECT nm FROM SLM_REPORT_CODE WHERE rpt_cd = T1.hig_rpt_cd AND use_fl = 'Y' AND ROWNUM = 1) grp_nm,
+            T0.rpt_cd,
+            T1.nm rpt_nm,
+            T1.sw_type_fl,
+            T0.res_fl,
+            T0.cnt_all,
+            T0.inspect_nm,
+            T0.confirm_nm,
+            0 itm_all,
+            0 itm_normal,
+            0 itm_abnormal
+        FROM
+            SLM_DA_REPORTSUM T0, SLM_REPORT_CODE T1
+        WHERE
+            T0.rpt_cd = T1.rpt_cd
+            AND T0.da_seq = #{key, jdbcType=NUMERIC}
+            AND T1.use_fl = 'Y'
+        ORDER BY
+            T0.rpt_cd
+    </select>
+
+    <!-- 점검요약정보 보고서 유형 별 항목 현황 가져오기 -->
+    <select id="getReportSummaryItmList" parameterType="map" resultType="map">
+        SELECT
+            T0.rpt_cd, T0.inp_val, T1.eng_nm, T1.topic_type
+        FROM
+            SLM_EQUIPMAIN_DATA T0, SLM_REPORT_TOPIC T1
+        WHERE
+            T0.rpt_cd = T1.rpt_cd
+            AND T0.topic_cd = T1.topic_cd
+            AND T0.da_seq = #{key, jdbcType=NUMERIC}
+            AND T1.use_fl = 'Y'
+            AND T1.topic_type IN ('int', 'select')
+    </select>
+
+    <!-- 점검요약정보 보고서 유형 별 항목 현황 가져오기 -->
+    <select id="getReportSummaryItmAllList" parameterType="map" resultType="map">
+        SELECT
+            T0.da_seq, T0.rpt_cd, T0.inp_val, T1.eng_nm
+        FROM
+            SLM_EQUIPMAIN_DATA T0, SLM_REPORT_TOPIC T1
+        WHERE
+            T0.rpt_cd = T1.rpt_cd
+            AND T0.topic_cd = T1.topic_cd
+
+            <if test="key != null and key != ''">
+                AND T0.da_seq = #{key, jdbcType=VARCHAR}
+            </if>
+
+            AND T1.use_fl = 'Y'
+            AND T1.topic_type = 'int'
+            AND T0.inp_val IS NOT NULL
+
+            <if test="arrRptCD != null">
+                AND T0.rpt_cd IN
+                <foreach collection="arrRptCD" item="item" index="index" separator="," open="(" close=")">
+                    '${item}'
+                </foreach>
+            </if>
+
+            <if test="arrEngNm != null">
+                AND T1.eng_nm IN
+                <foreach collection="arrEngNm" item="item" index="index" separator="," open="(" close=")">
+                    '${item}'
+                </foreach>
+            </if>
+    </select>
+
+    <!-- 점검요약정보 보고서 유형 별 항목 현황 별 항목기준 가져오기 -->
+    <select id="getReportSummaryItmExprList" parameterType="map" resultType="map">
+        SELECT
+            T2.rpt_cd, T0.eng_nm, T0.wrong_expr
+        FROM
+            SLM_EQUIP_EVALITEM T0, SLM_EQUIP_EVALGROUP T1, SLM_EQUIP_EVALGROUPMAP T2
+        WHERE
+            T0.grp_cd = T1.grp_cd
+            AND T1.grp_cd = T2.grp_cd
+            AND T0.chk_fl = 'Y'
+
+            <if test="rptCD != null and rptCD != ''">
+                AND T2.rpt_cd = #{rptCD, jdbcType=VARCHAR}
+            </if>
+    </select>
+
+    <!-- 점검요약정보 데이터 Update -->
+    <update id="setReportSummaryDataUpdate" parameterType="map">
+        UPDATE
+            SLM_DA_REPORTSUM
+
+        <set>
+            inspect_nm = #{vo.inspect_nm, jdbcType=VARCHAR},
+            confirm_nm = #{vo.confirm_nm, jdbcType=VARCHAR},
+            res_fl = #{vo.res_fl, jdbcType=VARCHAR},
+            confirm_dt = SYSDATE
+        </set>
+
+        WHERE
+            summ_seq = #{vo.summ_seq, jdbcType=NUMERIC}
+            AND da_seq = #{key, jdbcType=NUMERIC}
+    </update>
+
+    <!-- 점검요약정보 데이터(비정상 항목 현황) Update -->
+    <update id="setReportSummaryDataAbnormalItmUpdate" parameterType="map">
+        UPDATE
+            SLM_DA_REPORTSUM
+
+        <set>
+            itm_abnormal_cnt = itm_abnormal_cnt + #{vo.cnt, jdbcType=NUMERIC}
+        </set>
+
+        WHERE
+            da_seq = #{vo.da_seq, jdbcType=VARCHAR}
+            AND rpt_cd = #{vo.rpt_cd, jdbcType=VARCHAR}
+    </update>
+
+    <!-- 점검요약정보 데이터(비정상 항목 현황) 장비별 세부정보에서 데이터 수정 후 바로 Update -->
+    <update id="setReportSummaryDataAbnormalDirectUpdate" parameterType="map">
+        UPDATE
+            SLM_DA_REPORTSUM
+
+        <set>
+            itm_abnormal_cnt = #{cnt, jdbcType=NUMERIC}
+        </set>
+
+        WHERE
+            summ_seq = #{summ_seq, jdbcType=NUMERIC}
+            AND da_seq = #{da_seq, jdbcType=NUMERIC}
+            AND rpt_cd = #{rpt_cd, jdbcType=VARCHAR}
+    </update>
+
+    <!-- 점검요약정보 데이터 동기화 Update -->
+    <update id="setReportSummaryDataSyncUpdate" parameterType="map">
+        MERGE INTO SLM_DA_REPORTSUM m
+        USING (
+            SELECT
+                T0.summ_seq,
+                (
+                    CASE
+                        WHEN T0.sw_type_fl = 'N' THEN
+                            (SELECT COUNT(1) FROM SLM_DA_REPORTMAP WHERE da_seq = T0.da_seq AND rpt_cd = T0.rpt_cd)
+                        ELSE
+                            (
+                                SELECT
+                                    COUNT(1)
+                                FROM
+                                    SLM_DA_REPORTMAP ST, (SELECT rpt_cd, eqp_cd FROM SLM_SW_TOPIC WHERE use_fl = 'Y' GROUP BY rpt_cd, eqp_cd) ST0, SLM_EQUIPMENT ST1
+                                WHERE
+                                    ST.rpt_cd = ST0.rpt_cd
+                                    AND ST.eqp_cd = ST0.eqp_cd
+                                    AND ST0.eqp_cd = ST1.eqp_cd
+
+                                    AND ST.da_seq = T0.da_seq
+                                    AND ST.rpt_cd = T0.rpt_cd
+                                    AND ST1.use_fl = 'Y'
+                            )
+                    END
+                ) cnt_all,
+                NVL(T1.cnt_err, 0) cnt_err,
+                NVL(T1.cnt_fin, 0) cnt_fin,
+                NVL(T1.err_time, 0) err_time,
+                NVL(T1.hold_time, 0) hold_time,
+                NVL(T1.cnt_inn, 0) cnt_inn,
+                NVL(T1.cnt_out, 0) cnt_out,
+                T1.add_cont
+            FROM
+            (
+                SELECT
+                    ST0.summ_seq,
+                    ST.sw_type_fl,
+                    ST0.rpt_cd,
+                    ST0.da_seq,
+                    ST1.brief_dt
+                FROM
+                    SLM_REPORT_CODE ST, SLM_DA_REPORTSUM ST0, SLM_DA_REPORT ST1
+                WHERE
+                    ST.rpt_cd = ST0.rpt_cd
+                    AND ST0.da_seq = ST1.da_seq
+
+                    <if test="key != null and key != ''">
+                        AND ST0.da_seq = #{key, jdbcType=VARCHAR}
+                    </if>
+            ) T0
+            LEFT JOIN
+            (
+                SELECT
+                    T.da_seq,
+                    T.rpt_cd,
+                    T.occur_dt,
+                    COUNT(1) cnt_err,
+                    SUM(CASE WHEN fin_fl = 'Y' THEN 1 ELSE 0 END) cnt_fin,
+                    SUM(CASE WHEN type_cd = 'A' THEN 1 ELSE 0 END) cnt_inn,
+                    SUM(CASE WHEN type_cd = 'B' THEN 1 ELSE 0 END) cnt_out,
+                    TO_NUMBER(TRUNC(MOD(SUM(err_time), 1) * 24) || '.' || TRUNC(MOD(SUM(err_time) * 24, 1) * 60)) err_time,
+                    TO_NUMBER(TRUNC(MOD(SUM(hold_time), 1) * 24) || '.' || TRUNC(MOD(SUM(hold_time) * 24, 1) * 60)) hold_time,
+                    LISTAGG(summ_cont, ',') WITHIN GROUP(ORDER BY ROWNUM) add_cont
+                FROM
+                (
+                    SELECT
+                        ST1.da_seq,
+                        ST1.rpt_cd,
+                        CASE WHEN TO_CHAR(TO_DATE(ST0.occur_dt, 'YYYYMMDDHH24MISS'), 'd') ='1' THEN TO_CHAR (TO_DATE(ST0.occur_dt, 'YYYYMMDDHH24MISS') + 1, 'yyyymmdd')
+                        WHEN TO_CHAR(TO_DATE(ST0.occur_dt, 'YYYYMMDDHH24MISS'), 'd') ='7' THEN TO_CHAR (TO_DATE(ST0.occur_dt, 'YYYYMMDDHH24MISS') + 2, 'yyyymmdd')
+                        ELSE  SUBSTR(ST0.occur_dt, 1, 8) END as occur_dt,
+                        ST0.dis_seq,
+                        ST0.eqp_cd,
+                        ST0.type_cd,
+                        ST0.fin_fl,
+                        TO_DATE(ST0.mea_fin_dt, 'YYYYMMDDHH24MISS')-TO_DATE(ST0.occur_dt, 'YYYYMMDDHH24MISS') err_time,
+                        TO_DATE(ST0.sv_start_dt, 'YYYYMMDDHH24MISS')-TO_DATE(ST0.sv_stop_dt, 'YYYYMMDDHH24MISS') hold_time,
+                        ST0.summ_cont
+                    FROM
+                        SLM_DISORDER ST0, SLM_DA_REPORTMAP ST1
+                    WHERE
+                        ST0.eqp_cd = ST1.eqp_cd
+                        AND ST0.use_fl = 'Y'
+
+                        <if test="key != null and key != ''">
+                            AND ST1.da_seq = #{key, jdbcType=VARCHAR}
+                        </if>
+                ) T
+                GROUP BY
+                    T.da_seq, T.rpt_cd, T.occur_dt
+            ) T1
+            ON
+                T0.da_seq = T1.da_seq
+                AND T0.rpt_cd = T1.rpt_cd
+                AND T0.brief_dt = T1.occur_dt
+        ) e
+        ON ( m.summ_seq = e.summ_seq )
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                cnt_all = e.cnt_all,
+                cnt_err = e.cnt_err,
+                cnt_fin = e.cnt_fin,
+                err_time = e.err_time,
+                hold_time = e.hold_time,
+                cnt_inn = e.cnt_inn,
+                cnt_out = e.cnt_out,
+                add_cont = e.add_cont,
+                itm_all_cnt = 0,
+                itm_abnormal_cnt = 0
+    </update>
+
+    <!-- 점검요약정보 데이터 동기화-2 Update -->
+    <update id="setReportSummaryDataSyncItmCntEqpUpdate" parameterType="map">
+        MERGE INTO SLM_DA_REPORTSUM m
+        USING (
+            SELECT
+                T0.da_seq,
+                T0.rpt_cd,
+                COUNT(1) itm_all_cnt,
+                SUM(
+                    CASE
+                        WHEN T1.topic_type = 'select' AND T0.inp_val = 'N' THEN 1
+                        ELSE 0
+                    END
+                ) itm_abnormal_cnt
+            FROM
+                SLM_REPORT_CODE T, SLM_EQUIPMAIN_DATA T0, SLM_REPORT_TOPIC T1
+            WHERE
+                T.rpt_cd = T0.rpt_cd
+                AND T0.rpt_cd = T1.rpt_cd
+                AND T0.topic_cd = T1.topic_cd
+
+                <if test="key != null and key != ''">
+                    AND T0.da_seq = #{key, jdbcType=VARCHAR}
+                </if>
+
+                AND T.sw_type_fl = 'N'
+                AND T1.use_fl = 'Y'
+                AND T1.topic_type IN ('int', 'select')
+            GROUP BY
+                T0.da_seq, T0.rpt_cd
+        ) e
+        ON (
+            m.da_seq = e.da_seq
+            AND m.rpt_cd = e.rpt_cd
+        )
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                itm_all_cnt = e.itm_all_cnt,
+                itm_abnormal_cnt = e.itm_abnormal_cnt
+    </update>
+
+    <!-- 점검요약정보 데이터 동기화-2 Update -->
+    <update id="setReportSummaryDataSyncItmCntSwUpdate" parameterType="map">
+        MERGE INTO SLM_DA_REPORTSUM m
+        USING (
+            SELECT
+                T0.da_seq,
+                T0.rpt_cd,
+                COUNT(1) itm_all_cnt,
+                SUM(
+                    CASE
+                        WHEN T1.topic_type = 'select' AND T0.inp_val = 'N' THEN 1
+                        ELSE 0
+                    END
+                ) itm_abnormal_cnt
+            FROM
+                SLM_REPORT_CODE T, SLM_SWMAIN_DATA T0, SLM_REPORT_TOPIC T1
+            WHERE
+                T.rpt_cd = T0.rpt_cd
+                AND T0.rpt_cd = T1.rpt_cd
+                AND T0.topic_cd = T1.topic_cd
+
+            <if test="key != null and key != ''">
+                AND T0.da_seq = #{key, jdbcType=VARCHAR}
+            </if>
+
+                AND T.sw_type_fl = 'Y'
+                AND T1.use_fl = 'Y'
+                AND T1.topic_type IN ('int', 'select')
+            GROUP BY
+                T0.da_seq, T0.rpt_cd
+        ) e
+        ON (
+            m.da_seq = e.da_seq
+            AND m.rpt_cd = e.rpt_cd
+        )
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                itm_all_cnt = e.itm_all_cnt,
+                itm_abnormal_cnt = e.itm_abnormal_cnt
+    </update>
+
+    <!-- S/W 목록 가져오기(장비세부정보) -->
+    <select id="getSWListReport" parameterType="map" resultType="map">
+        SELECT
+            *
+        FROM
+        (
+            SELECT
+                ROWNUM as rnum,
+                T.*
+            FROM
+            (
+                SELECT
+                    *
+                FROM
+                (
+                    SELECT
+                        /*+LEADING(T0 T1) USE_NL(T0) INDEX_DESC(T1 SLM_EQUIPMENT_PK)*/ T0.topic_grp_seq, T0.eqp_cd, T0.topic_cd, T0.da_seq, T0.rpt_cd, T0.inp_val
+                    FROM
+                        SLM_SWMAIN_DATA T0, SLM_EQUIPMENT T1
+                    WHERE
+                        T0.eqp_cd = T1.eqp_cd
+                        AND T0.da_seq = #{daSeq, jdbcType=NUMERIC}
+                        AND T0.rpt_cd = #{rptCD, jdbcType=VARCHAR}
+                        AND T1.use_fl = 'Y'
+                )
+                PIVOT
+                (
+                    MIN(inp_val)
+                    FOR topic_cd IN
+                    <foreach collection="arrTopicKey" item="item" index="index" separator="," open="(" close=")">
+                        '${item}' AS ${colPrefix}${item}
+                    </foreach>
+                )
+                ORDER BY
+                    eqp_cd, topic_grp_seq
+            ) T
+        ) A0
+
+        <if test="vo != null">
+            WHERE
+                A0.rnum BETWEEN (#{vo.page} * #{vo.rows} - ( #{vo.rows} - 1 )) AND (#{vo.page} * #{vo.rows})
+        </if>
+    </select>
+
+    <!-- SLM_REPORT_TOPIC List 가져오기 -->
+    <select id="getReportTopicList" parameterType="map" resultType="map">
+        SELECT
+            topic_cd, topic_nm, topic_type, eng_nm, mod_lock_fl
+        FROM
+            SLM_REPORT_TOPIC T0
+
+        <where>
+            AND T0.use_fl = 'Y'
+            <if test="rptCD != null and rptCD !=''">
+                AND T0.rpt_cd = #{rptCD, jdbcType=VARCHAR}
+            </if>
+        </where>
+
+        ORDER BY
+            T0.rpt_cd, T0.pos
+    </select>
+
+    <!-- 장비별 유지보수 입력 값 Update -->
+    <update id="setDetailEquipCellUpdate" parameterType="map">
+        UPDATE
+            SLM_EQUIPMAIN_DATA
+
+        <set>
+            inp_val = #{vo.inp_val, jdbcType=VARCHAR},
+            reg_dts = SYSDATE
+        </set>
+
+        WHERE
+            eqp_cd = #{vo.eqp_cd, jdbcType=VARCHAR}
+            AND topic_cd = #{vo.topic_cd, jdbcType=VARCHAR}
+            AND da_seq = #{vo.da_seq, jdbcType=NUMERIC}
+            AND rpt_cd = #{vo.rpt_cd, jdbcType=VARCHAR}
+    </update>
+
+    <!-- S/W 유지보수 입력 값 Update -->
+    <update id="setDetailSoftwareCellUpdate" parameterType="map">
+        UPDATE
+            SLM_SWMAIN_DATA
+
+        <set>
+            inp_val = #{vo.inp_val, jdbcType=VARCHAR},
+            reg_dts = SYSDATE
+        </set>
+
+        WHERE
+            eqp_cd = #{vo.eqp_cd, jdbcType=VARCHAR}
+            AND topic_cd = #{vo.topic_cd, jdbcType=VARCHAR}
+            AND da_seq = #{vo.da_seq, jdbcType=NUMERIC}
+            AND rpt_cd = #{vo.rpt_cd, jdbcType=VARCHAR}
+            AND topic_grp_seq = #{vo.topic_grp_seq, jdbcType=VARCHAR}
+    </update>
+
+    <!-- 장비별 세부정보 엑셀 내보내기 엑셀 파일명 생성을 위한 데이터 추출 -->
+    <select id="getExportExcelTitle" parameterType="map" resultType="map">
+        SELECT
+            (SELECT nm FROM SLM_REPORT_CODE WHERE rpt_cd = T0.hig_rpt_cd AND use_fl = 'Y' AND ROWNUM = 1) grp_nm,
+            T0.nm rpt_nm
+        FROM
+            SLM_REPORT_CODE T0
+        WHERE
+            T0.rpt_cd = #{rptCD, jdbcType=VARCHAR}
+            AND T0.use_fl = 'Y'
+            AND ROWNUM = 1
+    </select>
+</mapper>

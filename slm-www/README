@@ -1,0 +1,76 @@
+[SLM S/W]
+기본 코딩 가이드
+- mybatis data map의 parameter인자 사용 시 # 구문으로 인자 받아서 사용
+  예 : WHERE x = #{srcCode}
+
+- 다른 페이지로 보안에 민감한 정보를 보낼 때는 POST 방식으로 파라미터 전달
+
+- 사용자 계정별 사용권한 체크를 위한 Controller 단의 구문 추가 ( 옵션 : C : 입력, R : 조회, U : 수정, D : 삭제 )
+  예 :
+    public ResultJQGridVO getList() {
+
+        try {
+
+            if (etcBiz == null) {
+
+                etcBiz = new CmnEtcBiz(sqlSession);
+            }
+
+            etcBiz.isUserAccessValidate(ses, mnu_cd, new String[]{"R"});
+        } catch (Exception ex) {
+
+            log.error(ex.toString(), ex);
+            return null;
+        }
+
+        // 실행 할 구문 작업
+    }
+
+    public int userAct(@RequestBody UserVO vo, HttpSession ses) {
+
+        try {
+
+            if (etcBiz == null) {
+
+                etcBiz = new CmnEtcBiz(sqlSession);
+            }
+
+            etcBiz.isUserAccessValidate(ses, mnu_cd, new String[]{"C", "U"});
+        } catch (Exception ex) {
+
+            log.error(ex.toString(), ex);
+            return Integer.parseInt(null);
+        }
+
+        // 실행 할 구문 작업
+    }
+
+- 사용자 계정별 사용권한 체크를 위한 jsp에서는 권한에 맞게 버튼 disable 상태로 가능하게 작업
+
+- VO 인자 값 SQL 필터링
+  예 :
+    CmnSecureBiz.filterSqlClass(vo); // vo 객체 일괄 필터
+    CmnSecureBiz.filterSqlString(jsonFilter.getString("srcAuth")); // 특정 인자만 필터
+
+- 구문 작성 시 try {} catch {} finally {} 구문을 사용하여 오류 상황 대응
+
+- catch {} 부분에 로그는 log.error 사용하여 txt 로그 파일에 저장
+  : e.printStackTrace 절대 사용 금지
+
+
+※ 구동전 설정 필요한 사항
+- log4j.xml의 로깅 경로 설정 (default.file > file)
+- config.properties 설정
+- dependencies에 pj-module 추가
+- oz70 서버 설정
+  : 추가된 파일 및 설정
+
+※ JEUS에 배포 시 변경 사항
+  - auth.war 배포 안함
+  - darkhand-*.js 파일
+    : $.fn.was = 'jeus'로 변경 ( default : tomcat )
+  - servlet-context.xml
+    : DB 접근 설정 변경
+  - config.properties 설정
+    : file.upload.directory
+    : was.id

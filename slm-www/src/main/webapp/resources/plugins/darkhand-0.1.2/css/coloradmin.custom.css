@@ -1,0 +1,51 @@
+#content-page-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: #E6E8EC;
+    z-index: 1020;
+    opacity:0.5;
+}
+#content-page-loader.fade {
+    display: none;
+}
+#content-page-loader.fade.in {
+    display: block;
+}
+
+/* btn-group-custom css 추가 */
+.panel-heading .btn-group-custom .btn {
+    margin-top: -7px;
+}
+.panel-heading .btn-group-custom .btn.btn-sm {
+    margin-top: -5px;
+}
+.panel-heading .btn-group-custom .btn.btn-xs {
+    margin-top: -1px;
+}
+.btn-group-custom .btn.btn-info:not(.active) + .btn.btn-info {
+    border-left-color: #3a92ab;
+}
+.btn-group-custom .btn.btn-default:not(.active) + .btn.btn-default {
+    border-left-color: #929ba1;
+}
+.btn-group-custom .btn.btn-white:not(.active) + .btn.btn-white {
+     border-left-color: #eee;
+ }
+.btn-group-custom .btn.btn-inverse:not(.active) + .btn.btn-inverse {
+    border-left-color: #242a30;
+}
+.btn-group-custom .btn.btn-primary:not(.active) + .btn.btn-primary {
+    border-left-color: #2a72b5;
+}
+.btn-group-custom .btn.btn-success:not(.active) + .btn.btn-success {
+    border-left-color: #008a8a;
+}
+.btn-group-custom .btn.btn-warning:not(.active) + .btn.btn-warning {
+    border-left-color: #c47d15;
+}
+.btn-group-custom .btn.btn-danger:not(.active) + .btn.btn-danger {
+    border-left-color: #cc4946;
+}
