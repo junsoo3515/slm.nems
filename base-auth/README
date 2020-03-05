@@ -1,0 +1,5 @@
+[공통모듈-인증 S/W]
+- 구문 작성 시 try {} catch {} finally {} 구문을 사용하여 오류 상황 대응
+
+- catch {} 부분에 로그는 log.error 사용하여 txt 로그 파일에 저장
+  : e.printStackTrace 절대 사용 금지
