@@ -15,7 +15,7 @@
         <java-version>1.8</java-version>
         <!--<spring.version>4.1.1.RELEASE</spring.version> 버전 UP 하면 ajax media type error 발생-->
         <!--<spring.version>3.2.4.RELEASE</spring.version>-->
-        <spring.version>4.3.8.RELEASE</spring.version>
+        <spring.version>5.3.19</spring.version>
         <aspectj.version>1.6.10</aspectj.version>
         <tiles.version>3.0.5</tiles.version>
         <slf4j.version>1.6.6</slf4j.version>
